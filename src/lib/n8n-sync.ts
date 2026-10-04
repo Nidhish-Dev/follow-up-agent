@@ -269,7 +269,7 @@ export async function deleteServiceFromN8n(uid: string, serviceId: string) {
       Array.isArray(listData) ? listData : listData.data || [];
 
     const matches = existingCredentials.filter(
-      (c) => c.name === config.name || (c.type === config.type && c.name.includes(serviceId))
+      (c) => c.name === config.name
     );
 
     for (const match of matches) {
