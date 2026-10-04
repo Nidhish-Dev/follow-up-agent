@@ -21,6 +21,7 @@ export async function GET(request: NextRequest) {
     });
     return NextResponse.json({ integrations });
   } catch (error) {
+    console.error("GET /api/integrations error:", error);
     return NextResponse.json({ error: error instanceof Error ? error.message : "Unable to load integrations" }, { status: 500 });
   }
 }
