@@ -1,69 +1,35 @@
-import Image from "next/image";
+"use client";
+/* eslint-disable @typescript-eslint/no-explicit-any, react-hooks/set-state-in-effect */
+import { Check, CircleAlert, Cloud, Eye, EyeOff, KeyRound, LoaderCircle, LockKeyhole, Mail, Play, RefreshCw, Save, Send, Sheet, Sparkles, Trash2, Webhook, Workflow } from "lucide-react";
+import { FormEvent, useEffect, useState } from "react";
+import { User, getAuth, signInAnonymously } from "firebase/auth";
+import { getApps, initializeApp } from "firebase/app";
 
-export default function Home() {
-  return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert h-5 w-[100px]"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-black/[.06] px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/[.08]">
-              page.tsx
-            </code>{" "}
-            file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert h-[14px] w-4"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
-  );
-}
+type ID = "openai" | "gmail" | "sheets" | "telegram" | "n8n" | "drive" | "quickchart";
+type Item = { id: ID; name: string; description: string; icon: typeof Sparkles; color: string; fields: { key: string; label: string; placeholder: string; secret?: boolean }[] };
+const services: Item[] = [
+  {id:"openai",name:"OpenAI",description:"Generate outreach copy and revisions",icon:Sparkles,color:"#10a37f",fields:[{key:"apiKey",label:"API key",placeholder:"sk-...",secret:true},{key:"model",label:"Default model",placeholder:"gpt-4o-mini"}]},
+  {id:"gmail",name:"Gmail",description:"Send approved outreach emails",icon:Mail,color:"#ea4335",fields:[{key:"email",label:"Sending address",placeholder:"hello@company.com"},{key:"oauthClientId",label:"OAuth client ID",placeholder:"...apps.googleusercontent.com",secret:true},{key:"oauthClientSecret",label:"OAuth client secret",placeholder:"Client secret",secret:true}]},
+  {id:"sheets",name:"Google Sheets",description:"Lead tracking and approval states",icon:Sheet,color:"#34a853",fields:[{key:"spreadsheetId",label:"Spreadsheet ID",placeholder:"From the Google Sheets URL"},{key:"serviceAccountJson",label:"Service account JSON",placeholder:"Paste service account JSON",secret:true}]},
+  {id:"telegram",name:"Telegram",description:"Approval buttons and draft previews",icon:Send,color:"#229ed9",fields:[{key:"botToken",label:"Bot token",placeholder:"123456:ABC...",secret:true},{key:"chatId",label:"Default chat ID",placeholder:"1965644994"}]},
+  {id:"n8n",name:"n8n",description:"Run and receive workflow webhooks",icon:Workflow,color:"#ff6d5a",fields:[{key:"baseUrl",label:"n8n base URL",placeholder:"https://your-n8n.app"},{key:"webhookUrl",label:"Workflow webhook URL",placeholder:"https://.../webhook/...",secret:true},{key:"apiKey",label:"n8n API key",placeholder:"n8n_api_...",secret:true}]},
+  {id:"drive",name:"Google Drive",description:"Publish outreach architecture diagrams",icon:Cloud,color:"#4285f4",fields:[{key:"folderId",label:"Destination folder ID",placeholder:"Google Drive folder ID"},{key:"oauthClientId",label:"OAuth client ID",placeholder:"...apps.googleusercontent.com",secret:true},{key:"oauthClientSecret",label:"OAuth client secret",placeholder:"Client secret",secret:true}]},
+  {id:"quickchart",name:"QuickChart",description:"Render Graphviz diagrams",icon:Webhook,color:"#7950f2",fields:[{key:"endpoint",label:"Render endpoint",placeholder:"https://quickchart.io/graphviz"}]}
+];
+const flows = [
+  ["Create a draft","orange",["Manual trigger / Webhook","Fetch leads from Tracking","Fetch existing responses","Fetch master leads","Deduplicate & qualify leads","OpenAI: generate AI Ops draft","Build diagram & email copy","Render diagram PNG","Upload diagram to Drive","Make diagram public","Save draft to Sheets","Send preview to Telegram"]],
+  ["Approve or send","blue",["Telegram trigger","Only callback queries","Parse callback payload","Read automation response","Verify lead state","Route decision","Not found notification","Already sent notification","Mark Sending","Gmail: send to lead","Mark sent / failed in Sheets","Telegram send result"]],
+  ["Revise the draft","violet",["Mark awaiting edit","Ask for edit instructions","OpenAI: revise existing draft","Build revised diagram & copy","Render revised diagram","Upload revised diagram","Make revised diagram public","Save revised draft","Send revised preview to Telegram"]]
+];
+function firebaseClient(){const config={apiKey:process.env.NEXT_PUBLIC_FIREBASE_API_KEY,authDomain:process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,projectId:process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,appId:process.env.NEXT_PUBLIC_FIREBASE_APP_ID};if(!config.apiKey||!config.authDomain||!config.projectId||!config.appId)return null;return getApps().length?getApps()[0]:initializeApp(config)}
+function firebaseError(error:unknown){const code=typeof error==="object"&&error&&"code" in error?String(error.code):"";if(code==="auth/admin-restricted-operation"||code==="auth/operation-not-allowed")return"Enable Anonymous sign-in in Firebase Console: Authentication > Sign-in method > Anonymous.";return error instanceof Error?error.message:"Could not connect to Firebase."}
+export default function Home(){
+  const [tab,setTab]=useState<"integrations"|"workflow">("integrations"),[id,setId]=useState<ID>("openai"),[saved,setSaved]=useState<Record<string,any>>({}),[values,setValues]=useState<Record<string,string>>({}),[fbUser,setFbUser]=useState<User|null>(null),[loading,setLoading]=useState(true),[saving,setSaving]=useState(false),[deleting,setDeleting]=useState(false),[confirmDelete,setConfirmDelete]=useState(false),[triggering,setTriggering]=useState(false),[shown,setShown]=useState<Record<string,boolean>>({}),[notice,setNotice]=useState<any>(null),[liveCount,setLiveCount]=useState<number|null>(null);const current=services.find(x=>x.id===id)!;
+  useEffect(()=>{const app=firebaseClient();if(!app){setNotice({type:"error",text:"Add Firebase public environment variables to enable secure saving."});setLoading(false);return}signInAnonymously(getAuth(app)).then(async({user})=>{setFbUser(user);const t=await user.getIdToken();const r=await fetch("/api/integrations",{headers:{Authorization:`Bearer ${t}`}});const d=await r.json();if(!r.ok)throw Error(d.error);const list=Object.fromEntries(d.integrations.map((x:any)=>[x.id,x]));setSaved(list);setValues(list.openai?.values||{});fetch("/api/n8n/live-count",{headers:{Authorization:`Bearer ${t}`}}).then(r=>r.ok?r.json():null).then(d=>{if(d?.count!=null)setLiveCount(d.count)}).catch(()=>{})}).catch(e=>setNotice({type:"error",text:firebaseError(e)})).finally(()=>setLoading(false))},[]);
+  const choose=(next:ID)=>{setId(next);setValues(saved[next]?.values||{});setNotice(null);setConfirmDelete(false)};
+  const remove=async()=>{if(!confirmDelete){setConfirmDelete(true);return}if(!fbUser)return;setDeleting(true);setNotice(null);try{const t=await fbUser.getIdToken();const r=await fetch(`/api/integrations?id=${id}`,{method:"DELETE",headers:{Authorization:`Bearer ${t}`}});const d=await r.json();if(!r.ok)throw Error(d.error);setSaved((x:any)=>{const n={...x};delete n[id];return n});setValues({});setConfirmDelete(false);const n8nMsg=d.n8nDeleted?.deleted?` and removed from n8n`:``;setNotice({type:"success",text:`${current.name} credentials deleted${n8nMsg}.`})}catch(e){setNotice({type:"error",text:e instanceof Error?e.message:"Could not delete"})}finally{setDeleting(false)}};
+  const save=async(e:FormEvent)=>{e.preventDefault();if(!fbUser)return;setSaving(true);setNotice(null);try{const t=await fbUser.getIdToken();const r=await fetch("/api/integrations",{method:"PUT",headers:{"Content-Type":"application/json",Authorization:`Bearer ${t}`},body:JSON.stringify({id,values})});const d=await r.json();if(!r.ok)throw Error(d.error);setSaved(x=>({...x,[id]:d.integration}));setValues(d.integration.values);if(id==="n8n"){const t2=await fbUser.getIdToken();const sync=await fetch("/api/n8n/provision",{method:"POST",headers:{Authorization:`Bearer ${t2}`}});const report=await sync.json();if(!sync.ok)throw Error(report.error);const results:{service:string;status:string;detail:string}[]=report.results;const failures=results.filter(r=>r.status==="failed").length;const actRequired=results.filter(r=>r.status==="action_required").length;const created=results.filter(r=>r.status==="created").length;setNotice({type:failures?"error":"success",text:`n8n saved. Pushed ${created} credential${created!==1?"s":""} to n8n${actRequired?` · ${actRequired} need${actRequired===1?"s":""} Google OAuth sign-in inside n8n`:""}${failures?` · ${failures} failed`:""}. `,results})}else{const synced=d.n8nSync?.results?.some((s:any)=>s.status==="synced");setNotice({type:"success",text:`${current.name} credentials saved${synced?" and automatically synced to n8n":""}.`})}}catch(e){setNotice({type:"error",text:e instanceof Error?e.message:"Could not save"})}finally{setSaving(false)}};
+  const triggerWorkflow=async()=>{if(!fbUser)return;setTriggering(true);setNotice(null);try{const t=await fbUser.getIdToken();const r=await fetch("/api/workflow/trigger",{method:"POST",headers:{"Content-Type":"application/json",Authorization:`Bearer ${t}`},body:JSON.stringify({})});const d=await r.json();if(!r.ok)throw Error(d.error);setNotice({type:"success",text:"Workflow started successfully via n8n webhook!"})}catch(e){setNotice({type:"error",text:e instanceof Error?e.message:"Failed to trigger workflow"})}finally{setTriggering(false)}};
+  return <main className="app-shell"><aside className="sidebar"><div className="brand"><div className="brand-mark"><Sparkles size={18}/></div><span>grapelabs</span></div><nav><button className={tab==="integrations"?"nav-link active":"nav-link"} onClick={()=>setTab("integrations")}><KeyRound size={18}/>Integrations</button><button className={tab==="workflow"?"nav-link active":"nav-link"} onClick={()=>setTab("workflow")}><Workflow size={18}/>Workflow map</button></nav></aside><section className="content"><header className="topbar"><div><p className="eyebrow">FOLLOWUP AGENT</p><h1>{tab==="integrations"?"Connection vault":"Workflow map"}</h1></div><div className="topbar-actions"><button className="save-button" style={{background:"#10a37f",gap:"7px"}} disabled={triggering||loading} onClick={triggerWorkflow}>{triggering?<LoaderCircle className="spin" size={15}/>:<Play size={15} fill="currentColor"/>} {triggering?"Starting...":"Start workflow"}</button><span className="secure-label"><LockKeyhole size={14}/>Encrypted at rest</span><button className="icon-button" title="Refresh saved integrations" onClick={()=>location.reload()}><RefreshCw size={17}/></button></div></header>{notice&&tab==="workflow"&&<div className={`notice ${notice.type}`} style={{marginTop:"20px"}}><CircleAlert size={16}/>{notice.text}</div>}{tab==="integrations"?<><section className="summary-grid"><div className="summary-card"><div className="summary-icon green"><Check size={19}/></div><div><strong>{Object.values(saved).filter((x:any)=>x.configured).length} / {services.length}</strong><span>connections configured</span></div></div><div className="summary-card"><div className="summary-icon orange"><Play size={19}/></div><div><strong>{liveCount!=null?liveCount:"—"} live paths</strong><span>from your n8n workflow</span></div></div><div className="summary-card callout"><span>All credential values are encrypted before Firestore storage and return here masked.</span></div></section><div className="settings-grid"><section className="integration-list"><div className="section-heading"><div><p className="eyebrow">CONNECTIONS</p><h2>Services</h2></div></div>{services.map(s=>{const Icon=s.icon;return <button key={s.id} className={id===s.id?"integration-row selected":"integration-row"} onClick={()=>choose(s.id)}><span className="service-icon" style={{backgroundColor:s.color}}><Icon size={18}/></span><span className="service-copy"><b>{s.name}</b><small>{s.description}</small></span><span className={saved[s.id]?.configured?"status-dot ready":"status-dot"}/></button>})}</ section><section className="credential-panel"><div className="credential-head"><div className="large-service-icon" style={{backgroundColor:current.color}}><current.icon size={25}/></div><div><p className="eyebrow">{current.name.toUpperCase()} CONNECTION</p><h2>{current.name}</h2><p>{current.description}</p></div></div>{notice&&<div className={`notice ${notice.type}`}><CircleAlert size={16}/><div style={{flex:1}}><span>{notice.text}</span>{notice.results&&<ul style={{margin:"6px 0 0",padding:"0 0 0 18px",fontSize:"0.82em",lineHeight:1.6}}>{(notice.results as {service:string;status:string;detail:string}[]).map(r=><li key={r.service} style={{color:r.status==="created"?"#22c55e":r.status==="failed"?"#ef4444":r.status==="action_required"?"#f59e0b":"inherit"}}><b>{r.service}:</b> {r.detail}</li>)}</ul>}</div></div>}<form onSubmit={save}>{current.fields.map(f=><label className="field" key={f.key}><span>{f.label}</span><div className="input-wrap"><input required value={values[f.key]||""} type={f.secret&&!shown[f.key]?"password":"text"} placeholder={f.placeholder} onChange={e=>setValues(v=>({...v,[f.key]:e.target.value}))}/>{f.secret&&<button type="button" className="peek-button" onClick={()=>setShown(v=>({...v,[f.key]:!v[f.key]}))}>{shown[f.key]?<EyeOff size={17}/>:<Eye size={17}/>}</button>}</div></label>)}<div className="form-footer"><span><LockKeyhole size={14}/>Stored in your Firebase vault</span><div style={{display:"flex",gap:"8px"}}>{saved[id]?.configured&&<button type="button" className="save-button" style={{background:confirmDelete?"#ef4444":"transparent",color:confirmDelete?"#fff":"#ef4444",border:"1px solid #ef4444"}} disabled={deleting||loading} onClick={remove}>{deleting?<LoaderCircle className="spin" size={17}/>:<Trash2 size={17}/>} {deleting?"Deleting…":confirmDelete?"Confirm delete?":"Delete"}</button>}<button className="save-button" disabled={saving||loading}>{saving?<LoaderCircle className="spin" size={17}/>:<Save size={17}/>} {saving?"Saving":"Save connection"}</button></div></div></form></section></div></> :<WorkflowView onTrigger={triggerWorkflow} triggering={triggering}/>}</section></main>}
+
+function WorkflowView({onTrigger,triggering}:{onTrigger:()=>void;triggering:boolean}){return <><section className="workflow-intro"><div><p className="eyebrow">IMPORTED FROM N8N</p><h2>FollowUp Agent Frontend</h2><p>The full lead-to-email approval loop, organised as the three paths operating in your workflow.</p></div><div style={{display:"flex",alignItems:"center",gap:"16px"}}><button className="save-button" style={{background:"#10a37f",gap:"7px"}} disabled={triggering} onClick={onTrigger}>{triggering?<LoaderCircle className="spin" size={15}/>:<Play size={15} fill="currentColor"/>} {triggering?"Starting...":"Start workflow"}</button><div className="workflow-legend"><span><i className="dot orange"/>Draft</span><span><i className="dot blue"/>Approval</span><span><i className="dot violet"/>Revision</span></div></div></section><section className="flow-canvas">{flows.map(([title,tone,items]:any,index)=><div className={`flow-lane ${tone}`} key={title}><div className="lane-label"><span>0{index+1}</span><h3>{title}</h3></div><div className="flow-nodes">{items.map((item:string,i:number)=><div className="flow-step" key={item}><div className="node-number">{String(i+1).padStart(2,"0")}</div><span>{item}</span>{i<items.length-1&&<div className="connector"/>}</div>)}</div></div>)}</section><section className="workflow-note"><Webhook size={20}/><div><b>Frontend trigger point</b><p>Point the n8n Webhook node to the app URL, then use the saved n8n webhook address in your frontend actions.</p></div></section></>}
