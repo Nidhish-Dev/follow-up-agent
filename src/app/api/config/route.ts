@@ -40,9 +40,7 @@ export async function GET(request: NextRequest) {
       },
       openai: {
         model: records.openai?.model || "gpt-4o-mini",
-      },
-      quickchart: {
-        endpoint: records.quickchart?.endpoint || "https://quickchart.io/graphviz",
+        systemPrompt: records.openai?.systemPrompt || "",
       },
     };
 

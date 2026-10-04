@@ -3,7 +3,7 @@ import { FieldValue } from "firebase-admin/firestore";
 import { adminAuth, adminDb } from "@/lib/firebase-admin";
 import { syncServiceToN8n, deleteServiceFromN8n } from "@/lib/n8n-sync";
 
-const allowed = new Set(["openai", "gmail", "sheets", "telegram", "n8n", "drive", "quickchart"]);
+const allowed = new Set(["openai", "gmail", "sheets", "telegram", "n8n", "drive"]);
 
 async function userId(request: NextRequest) {
   const token = request.headers.get("authorization")?.replace("Bearer ", "");
@@ -38,7 +38,12 @@ export async function PUT(request: NextRequest) {
         .map(([name, value]) => [name, String(value).trim()])
     );
 
-    await adminDb().collection("users").doc(uid).collection("integrations").doc(id).set({
+    const db = adminDb();
+
+    // Write parent user doc so /api/config can locate this user via collection query
+    await db.collection("users").doc(uid).set({ updatedAt: FieldValue.serverTimestamp() }, { merge: true });
+
+    await db.collection("users").doc(uid).collection("integrations").doc(id).set({
       values: clean,
       updatedAt: FieldValue.serverTimestamp(),
     });
