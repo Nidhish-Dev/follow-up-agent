@@ -1,4 +1,4 @@
-import { adminDb } from "@/lib/firebase-admin";
+import { getWorkspaceIntegrationsRef } from "@/lib/workspace-db";
 
 type ServiceMapping = {
   name: string;
@@ -62,8 +62,9 @@ function apiRoot(baseUrl: string) {
   return trimmed.endsWith("/api/v1") ? trimmed : `${trimmed}/api/v1`;
 }
 
-async function getN8nConfig(uid: string) {
-  const doc = await adminDb().collection("users").doc(uid).collection("integrations").doc("n8n").get();
+async function getN8nConfig() {
+  const ref = await getWorkspaceIntegrationsRef();
+  const doc = await ref.doc("n8n").get();
   if (!doc.exists) return null;
   const values = (doc.data() as { values?: Record<string, string> }).values;
   if (!values?.baseUrl || !values?.apiKey) return null;
@@ -157,8 +158,8 @@ async function autoBindCredentialToWorkflows(
 /**
  * Automatically syncs a single service (or all services) into n8n and binds them across all workflows.
  */
-export async function syncServiceToN8n(uid: string, targetServiceId?: string) {
-  const n8n = await getN8nConfig(uid);
+export async function syncServiceToN8n(targetServiceId?: string) {
+  const n8n = await getN8nConfig();
   if (!n8n) return { synced: false, reason: "n8n not configured" };
 
   const servicesToSync = targetServiceId
@@ -178,13 +179,14 @@ export async function syncServiceToN8n(uid: string, targetServiceId?: string) {
   }
 
   const results: Array<{ service: string; status: string; detail: string }> = [];
+  const ref = await getWorkspaceIntegrationsRef();
 
   for (const sId of servicesToSync) {
     const config = SERVICE_CONFIGS[sId];
     if (!config) continue;
 
-    // Load saved values from Firestore
-    const doc = await adminDb().collection("users").doc(uid).collection("integrations").doc(sId).get();
+    // Load saved values from Firestore workspace
+    const doc = await ref.doc(sId).get();
     if (!doc.exists) continue;
     const values = (doc.data() as { values?: Record<string, string> })?.values || {};
     const payload = config.buildData(values);
@@ -253,8 +255,8 @@ export async function syncServiceToN8n(uid: string, targetServiceId?: string) {
 /**
  * Automatically deletes the corresponding credential from n8n when deleted from frontend.
  */
-export async function deleteServiceFromN8n(uid: string, serviceId: string) {
-  const n8n = await getN8nConfig(uid);
+export async function deleteServiceFromN8n(serviceId: string) {
+  const n8n = await getN8nConfig();
   if (!n8n) return { deleted: false, reason: "n8n not configured" };
 
   const config = SERVICE_CONFIGS[serviceId];

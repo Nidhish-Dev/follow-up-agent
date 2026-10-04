@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { adminAuth, adminDb } from "@/lib/firebase-admin";
+import { adminAuth } from "@/lib/firebase-admin";
+import { getWorkspaceIntegrationsRef } from "@/lib/workspace-db";
 
 type ProvisionResult = {
   service: string;
@@ -20,8 +21,8 @@ function apiRoot(baseUrl: string) {
 
 export async function POST(request: NextRequest) {
   try {
-    const uid = await userId(request);
-    const collection = adminDb().collection("users").doc(uid).collection("integrations");
+    await userId(request);
+    const collection = await getWorkspaceIntegrationsRef();
     const snapshot = await collection.get();
     const records = Object.fromEntries(
       snapshot.docs.map((doc) => [doc.id, (doc.data() as { values: Record<string, string> }).values ?? {}])

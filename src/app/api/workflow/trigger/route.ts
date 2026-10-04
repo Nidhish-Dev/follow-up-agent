@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { adminAuth, adminDb } from "@/lib/firebase-admin";
+import { adminAuth } from "@/lib/firebase-admin";
+import { getWorkspaceIntegrationsRef } from "@/lib/workspace-db";
 
 export async function POST(request: NextRequest) {
   try {
@@ -10,8 +11,9 @@ export async function POST(request: NextRequest) {
 
     const uid = (await adminAuth().verifyIdToken(token)).uid;
 
-    // Load n8n settings
-    const n8nDoc = await adminDb().collection("users").doc(uid).collection("integrations").doc("n8n").get();
+    // Load n8n settings from the single workspace object
+    const integrationsRef = await getWorkspaceIntegrationsRef();
+    const n8nDoc = await integrationsRef.doc("n8n").get();
     const n8nData = (n8nDoc.data() as { values?: Record<string, string> })?.values;
 
     const body = await request.json().catch(() => ({}));

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { adminAuth, adminDb } from "@/lib/firebase-admin";
+import { adminAuth } from "@/lib/firebase-admin";
+import { getWorkspaceIntegrationsRef } from "@/lib/workspace-db";
 
 export async function GET(req: NextRequest) {
   try {
@@ -7,11 +8,10 @@ export async function GET(req: NextRequest) {
     const token = authHeader.replace("Bearer ", "").trim();
     if (!token) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    const decoded = await adminAuth().verifyIdToken(token);
-    const uid = decoded.uid;
+    await adminAuth().verifyIdToken(token);
 
-    const db = adminDb();
-    const n8nDoc = await db.collection("users").doc(uid).collection("integrations").doc("n8n").get();
+    const integrationsRef = await getWorkspaceIntegrationsRef();
+    const n8nDoc = await integrationsRef.doc("n8n").get();
     if (!n8nDoc.exists) return NextResponse.json({ count: 0 });
 
     const data = n8nDoc.data();
@@ -29,7 +29,6 @@ export async function GET(req: NextRequest) {
     if (!res.ok) return NextResponse.json({ count: 0 });
 
     const body = await res.json();
-    // n8n returns { data: [...] } or { workflows: [...] }
     const list: any[] = body.data ?? body.workflows ?? [];
     const count = list.filter((w: any) => w.active === true).length;
 
@@ -39,4 +38,3 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ count: 0 });
   }
 }
-
