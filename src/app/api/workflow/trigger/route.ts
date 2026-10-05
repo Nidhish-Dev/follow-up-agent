@@ -59,9 +59,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const executionId = responseData?.executionId || responseData?.execution_id || responseData?.id || null;
+
     return NextResponse.json({
       success: true,
       status: n8nResponse.status,
+      executionId,
       data: responseData,
     });
   } catch (error) {
