@@ -1,9 +1,11 @@
 "use client";
 /* eslint-disable @typescript-eslint/no-explicit-any, react-hooks/set-state-in-effect */
-import { Activity, AlertTriangle, Check, ChevronRight, CircleAlert, Clock, Cloud, Code2, Copy, Eye, EyeOff, GitBranch, Globe, KeyRound, LoaderCircle, LockKeyhole, Mail, Play, PowerOff, Radio, RefreshCw, Save, Send, Sheet, Sparkles, Square, Trash2, Webhook, Workflow, X } from "lucide-react";
+import { Activity, AlertTriangle, Calendar, CalendarDays, Check, ChevronLeft, ChevronRight, CircleAlert, Clock, Cloud, Code2, Copy, Eye, EyeOff, Filter, GitBranch, Globe, KeyRound, LoaderCircle, LockKeyhole, Mail, PauseCircle, Play, PlayCircle, PowerOff, Radio, RefreshCw, Save, Send, Sheet, Sparkles, Square, Trash2, Webhook, Workflow, X } from "lucide-react";
 import { FormEvent, useEffect, useState } from "react";
 import { User, getAuth, signInAnonymously } from "firebase/auth";
 import { getApps, initializeApp } from "firebase/app";
+import { DAYS_MAP, formatScheduleSummary, formatTime12h, isScheduleDueNow, ScheduleConfig } from "@/lib/schedule-helper";
+import { DEFAULT_QUALIFICATION_RULES, LeadQualificationRules } from "@/lib/qualification-types";
 
 type ID = "openai" | "gmail" | "sheets" | "telegram" | "n8n" | "drive";
 type Item = { id: ID; name: string; description: string; icon: typeof Sparkles; color: string; fields: { key: string; label: string; placeholder: string; secret?: boolean; textarea?: boolean }[] };
@@ -110,6 +112,852 @@ function getNodeIcon(service: string) {
     default:
       return <Activity size={13} color="#64748b" />;
   }
+}
+
+const TIMEZONES = [
+  "Asia/Kolkata",
+  "UTC",
+  "America/New_York",
+  "America/Chicago",
+  "America/Denver",
+  "America/Los_Angeles",
+  "Europe/London",
+  "Europe/Paris",
+  "Europe/Berlin",
+  "Asia/Dubai",
+  "Asia/Singapore",
+  "Asia/Tokyo",
+  "Australia/Sydney",
+];
+
+function LeadQualificationSection({
+  fbUser,
+  setNotice,
+}: {
+  fbUser: User | null;
+  setNotice: (n: any) => void;
+}) {
+  const [rules, setRules] = useState<LeadQualificationRules>(DEFAULT_QUALIFICATION_RULES);
+  const [, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  const fetchRules = async () => {
+    if (!fbUser) return;
+    setLoading(true);
+    try {
+      const t = await fbUser.getIdToken();
+      const res = await fetch("/api/qualification", {
+        headers: { Authorization: `Bearer ${t}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.rules) setRules(data.rules);
+      }
+    } catch (err) {
+      console.warn("Failed to load qualification rules", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (fbUser) fetchRules();
+  }, [fbUser]);
+
+  const saveRules = async () => {
+    if (!fbUser) return;
+    setSaving(true);
+    try {
+      const t = await fbUser.getIdToken();
+      const res = await fetch("/api/qualification", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${t}`,
+        },
+        body: JSON.stringify(rules),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to save rules");
+      setRules(data.rules);
+      setNotice({
+        type: "success",
+        text: `Lead qualification rules saved! Pipeline will qualify leads with ≥ ${data.rules.minOpens} opens ${
+          data.rules.includeClicked ? `or clicked ≥ ${data.rules.minClicks} link(s)` : ""
+        }.`,
+      });
+    } catch (err: any) {
+      setNotice({
+        type: "error",
+        text: err?.message || "Failed to update lead qualification rules.",
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="control-card" style={{ marginTop: "24px" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "16px", flexWrap: "wrap", gap: "12px" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+          <div style={{ width: "36px", height: "36px", borderRadius: "8px", background: "#eff6ff", color: "#2563eb", display: "grid", placeItems: "center" }}>
+            <Filter size={18} />
+          </div>
+          <div>
+            <span className="eyebrow" style={{ display: "block", marginBottom: "2px" }}>DEDUPLICATE & QUALIFY LEADS1</span>
+            <h3 style={{ margin: 0, fontSize: "17px", fontWeight: 700, color: "var(--ink)" }}>
+              Lead Qualification Rules
+            </h3>
+          </div>
+        </div>
+
+        <button
+          type="button"
+          className="save-button"
+          style={{ background: "#2563eb", gap: "6px" }}
+          onClick={saveRules}
+          disabled={saving}
+        >
+          {saving ? <LoaderCircle className="spin" size={14} /> : <Save size={14} />}
+          {saving ? "Saving..." : "Save qualification rules"}
+        </button>
+      </div>
+
+      <p style={{ fontSize: "12.5px", color: "var(--muted)", lineHeight: 1.55, margin: "0 0 16px" }}>
+        Configure which leads from your tracking sheets qualify for outreach generation in the <b>Deduplicate & Qualify Leads1</b> node.
+      </p>
+
+      {/* Dynamic Rule Summary Callout */}
+      <div style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: "8px", padding: "12px 16px", marginBottom: "18px", display: "flex", alignItems: "center", gap: "10px" }}>
+        <Check size={16} color="#16a34a" />
+        <span style={{ fontSize: "12.5px", fontWeight: 600, color: "#166534" }}>
+          Active Rule: Qualify leads who opened ≥ <b>{rules.minOpens}</b> time(s){" "}
+          {rules.includeClicked
+            ? `${rules.matchMode === "or" ? "OR" : "AND"} clicked ≥ ${rules.minClicks} link(s)`
+            : ""}
+          {rules.excludeAlreadyContacted ? " • Excludes replied leads" : ""}
+          {rules.deduplicateByEmail ? " • Deduplicates by email" : ""}
+        </span>
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "18px" }}>
+        {/* Min Opens */}
+        <div style={{ background: "var(--canvas)", padding: "14px", borderRadius: "8px", border: "1px solid var(--line)" }}>
+          <label style={{ display: "block", fontSize: "12px", fontWeight: 700, color: "var(--ink)", marginBottom: "4px" }}>
+            Minimum Email Opens
+          </label>
+          <span style={{ display: "block", fontSize: "11px", color: "var(--muted)", marginBottom: "8px" }}>
+            Leads with at least this many opens will qualify
+          </span>
+          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            <input
+              type="number"
+              min={1}
+              max={50}
+              value={rules.minOpens}
+              onChange={(e) => setRules((p) => ({ ...p, minOpens: Math.max(1, parseInt(e.target.value, 10) || 1) }))}
+              style={{
+                width: "90px",
+                padding: "8px 12px",
+                border: "1px solid #cbd5e1",
+                borderRadius: "6px",
+                fontSize: "14px",
+                fontWeight: 700,
+                color: "var(--ink)",
+                background: "#fff",
+              }}
+            />
+            <span style={{ fontSize: "12px", color: "var(--muted)" }}>opens or more</span>
+          </div>
+        </div>
+
+        {/* Link Clicks */}
+        <div style={{ background: "var(--canvas)", padding: "14px", borderRadius: "8px", border: "1px solid var(--line)" }}>
+          <label style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "12px", fontWeight: 700, color: "var(--ink)", cursor: "pointer", marginBottom: "4px" }}>
+            <input
+              type="checkbox"
+              checked={rules.includeClicked}
+              onChange={(e) => setRules((p) => ({ ...p, includeClicked: e.target.checked }))}
+            />
+            Include Leads Who Clicked Links
+          </label>
+          <span style={{ display: "block", fontSize: "11px", color: "var(--muted)", marginBottom: "8px" }}>
+            Automatically qualify leads who clicked in the email
+          </span>
+          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            <input
+              type="number"
+              min={1}
+              max={20}
+              disabled={!rules.includeClicked}
+              value={rules.minClicks}
+              onChange={(e) => setRules((p) => ({ ...p, minClicks: Math.max(1, parseInt(e.target.value, 10) || 1) }))}
+              style={{
+                width: "90px",
+                padding: "8px 12px",
+                border: "1px solid #cbd5e1",
+                borderRadius: "6px",
+                fontSize: "14px",
+                fontWeight: 700,
+                color: rules.includeClicked ? "var(--ink)" : "var(--muted)",
+                background: rules.includeClicked ? "#fff" : "#f1f5f9",
+              }}
+            />
+            <span style={{ fontSize: "12px", color: "var(--muted)" }}>click(s) or more</span>
+          </div>
+        </div>
+
+        {/* Qualification Logic / Match Mode */}
+        <div style={{ background: "var(--canvas)", padding: "14px", borderRadius: "8px", border: "1px solid var(--line)" }}>
+          <label style={{ display: "block", fontSize: "12px", fontWeight: 700, color: "var(--ink)", marginBottom: "4px" }}>
+            Qualification Condition
+          </label>
+          <span style={{ display: "block", fontSize: "11px", color: "var(--muted)", marginBottom: "8px" }}>
+            How opens and clicks should be combined
+          </span>
+          <select
+            value={rules.matchMode}
+            onChange={(e) => setRules((p) => ({ ...p, matchMode: e.target.value as "or" | "and" }))}
+            style={{
+              width: "100%",
+              padding: "8px 12px",
+              border: "1px solid #cbd5e1",
+              borderRadius: "6px",
+              fontSize: "12px",
+              fontWeight: 600,
+              background: "#fff",
+              color: "var(--ink)",
+            }}
+          >
+            <option value="or">Qualify if Opens ≥ {rules.minOpens} OR Clicked (Recommended)</option>
+            <option value="and">Require BOTH Opens ≥ {rules.minOpens} AND Clicked</option>
+          </select>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ScheduleSection({
+  fbUser,
+  setNotice,
+  onTrigger,
+}: {
+  fbUser: User | null;
+  setNotice: (n: any) => void;
+  onTrigger?: () => void;
+}) {
+  const [schedule, setSchedule] = useState<ScheduleConfig>({
+    enabled: false,
+    startDate: new Date().toISOString().split("T")[0],
+    endDate: null,
+    daysOfWeek: [1, 2, 3, 4, 5],
+    time: "09:00",
+    timezone: typeof Intl !== "undefined" ? Intl.DateTimeFormat().resolvedOptions().timeZone : "Asia/Kolkata",
+    lastRunAt: null,
+    nextRunAt: null,
+  });
+  const [noEndDate, setNoEndDate] = useState(true);
+  const [, setLoadingSchedule] = useState(true);
+  const [savingSchedule, setSavingSchedule] = useState(false);
+  const [testingSchedule, setTestingSchedule] = useState(false);
+  const [calMonth, setCalMonth] = useState(new Date());
+
+  const fetchSchedule = async () => {
+    if (!fbUser) return;
+    setLoadingSchedule(true);
+    try {
+      const t = await fbUser.getIdToken();
+      const res = await fetch("/api/schedule", {
+        headers: { Authorization: `Bearer ${t}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.schedule) {
+          setSchedule(data.schedule);
+          setNoEndDate(!data.schedule.endDate);
+        }
+      }
+    } catch (err) {
+      console.warn("Failed to load schedule", err);
+    } finally {
+      setLoadingSchedule(false);
+    }
+  };
+
+  useEffect(() => {
+    if (fbUser) {
+      fetchSchedule();
+    }
+  }, [fbUser]);
+
+  // Automated background schedule runner (actively checks every 10 seconds)
+  useEffect(() => {
+    if (!fbUser || !schedule.enabled) return;
+
+    let isRunningCheck = false;
+    const runCheck = async () => {
+      if (isRunningCheck) return;
+      const now = new Date();
+      if (isScheduleDueNow(schedule, now)) {
+        isRunningCheck = true;
+        try {
+          const t = await fbUser.getIdToken();
+          const res = await fetch("/api/schedule/run", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${t}`,
+            },
+            body: JSON.stringify({ force: false }),
+          });
+          const data = await res.json();
+          if (res.ok && data.success) {
+            setNotice({
+              type: "success",
+              text: `⏰ Automated scheduled execution triggered at ${formatTime12h(schedule.time)}! Run #${data.executionId || "started"} in progress.`,
+            });
+            fetchSchedule();
+            onTrigger?.();
+          }
+        } catch (err) {
+          console.warn("Automated schedule check error:", err);
+        } finally {
+          isRunningCheck = false;
+        }
+      }
+    };
+
+    runCheck();
+    const interval = setInterval(runCheck, 10000);
+    return () => clearInterval(interval);
+  }, [fbUser, schedule, onTrigger]);
+
+  const saveSchedule = async (overrides?: Partial<ScheduleConfig>) => {
+    if (!fbUser) return;
+    setSavingSchedule(true);
+    try {
+      const t = await fbUser.getIdToken();
+      const payload: ScheduleConfig = {
+        ...schedule,
+        ...(overrides || {}),
+        endDate: noEndDate ? null : (overrides?.endDate !== undefined ? overrides.endDate : schedule.endDate),
+      };
+
+      const res = await fetch("/api/schedule", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${t}`,
+        },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to save schedule");
+      setSchedule(data.schedule);
+      setNotice({
+        type: "success",
+        text: payload.enabled
+          ? `Schedule saved & active! Next run: ${
+              data.schedule.nextRunAt ? new Date(data.schedule.nextRunAt).toLocaleString() : "configured"
+            }.`
+          : "Schedule saved (paused).",
+      });
+    } catch (err: any) {
+      setNotice({
+        type: "error",
+        text: err?.message || "Failed to update schedule.",
+      });
+    } finally {
+      setSavingSchedule(false);
+    }
+  };
+
+  const testTriggerSchedule = async () => {
+    if (!fbUser) return;
+    setTestingSchedule(true);
+    try {
+      const t = await fbUser.getIdToken();
+      const res = await fetch("/api/schedule/run", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${t}`,
+        },
+        body: JSON.stringify({ force: true }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to trigger scheduled run");
+      setNotice({
+        type: "success",
+        text: `Scheduled test run initiated successfully! Execution #${data.executionId || "started"} running.`,
+      });
+      fetchSchedule();
+    } catch (err: any) {
+      setNotice({
+        type: "error",
+        text: err?.message || "Failed to execute test run.",
+      });
+    } finally {
+      setTestingSchedule(false);
+    }
+  };
+
+  const toggleDay = (dayId: number) => {
+    setSchedule((prev) => {
+      const exists = prev.daysOfWeek.includes(dayId);
+      const days = exists
+        ? prev.daysOfWeek.filter((d) => d !== dayId)
+        : [...prev.daysOfWeek, dayId].sort();
+      return { ...prev, daysOfWeek: days };
+    });
+  };
+
+  const setDaysPreset = (preset: "all" | "weekdays" | "weekends" | "clear") => {
+    if (preset === "all") setSchedule((p) => ({ ...p, daysOfWeek: [1, 2, 3, 4, 5, 6, 0] }));
+    else if (preset === "weekdays") setSchedule((p) => ({ ...p, daysOfWeek: [1, 2, 3, 4, 5] }));
+    else if (preset === "weekends") setSchedule((p) => ({ ...p, daysOfWeek: [6, 0] }));
+    else setSchedule((p) => ({ ...p, daysOfWeek: [] }));
+  };
+
+  // Calendar calculations
+  const year = calMonth.getFullYear();
+  const month = calMonth.getMonth();
+  const firstDayOfMonth = new Date(year, month, 1);
+  const lastDayOfMonth = new Date(year, month + 1, 0);
+  const daysInMonth = lastDayOfMonth.getDate();
+  const startDayOffset = (firstDayOfMonth.getDay() + 6) % 7; // 0 = Mon, 6 = Sun
+
+  const todayStr = new Date().toISOString().split("T")[0];
+  const monthLabel = calMonth.toLocaleString("default", { month: "long", year: "numeric" });
+
+  const prevMonth = () => setCalMonth(new Date(year, month - 1, 1));
+  const nextMonth = () => setCalMonth(new Date(year, month + 1, 1));
+
+  const onDateClick = (dateStr: string) => {
+    if (!schedule.startDate || dateStr < schedule.startDate) {
+      setSchedule((prev) => ({ ...prev, startDate: dateStr }));
+    } else {
+      setSchedule((prev) => ({ ...prev, endDate: dateStr }));
+      setNoEndDate(false);
+    }
+  };
+
+  const isScheduleActive = schedule.enabled;
+  const isExpired = !noEndDate && schedule.endDate && schedule.endDate < todayStr;
+
+  return (
+    <section className="schedule-section">
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: "12px", marginBottom: "18px" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+          <div style={{ width: "36px", height: "36px", borderRadius: "8px", background: "#fff0ec", color: "var(--orange)", display: "grid", placeItems: "center" }}>
+            <CalendarDays size={20} />
+          </div>
+          <div>
+            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+              <h3 style={{ margin: 0, fontSize: "17px", fontWeight: 700, color: "var(--ink)" }}>
+                Automated Workflow Scheduler
+              </h3>
+              <span
+                style={{
+                  fontSize: "10px",
+                  fontWeight: 800,
+                  textTransform: "uppercase",
+                  padding: "2px 8px",
+                  borderRadius: "12px",
+                  background: isScheduleActive ? (isExpired ? "#fee2e2" : "#dcfce7") : "#f1f5f9",
+                  color: isScheduleActive ? (isExpired ? "#b91c1c" : "#15803d") : "#64748b",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "4px",
+                }}
+              >
+                {isScheduleActive && !isExpired && (
+                  <span style={{ width: "6px", height: "6px", borderRadius: "50%", background: "#16a34a" }} />
+                )}
+                {isExpired ? "EXPIRED" : isScheduleActive ? "SCHEDULE ACTIVE" : "PAUSED"}
+              </span>
+            </div>
+            <p style={{ margin: "2px 0 0", fontSize: "12px", color: "var(--muted)" }}>
+              Pick calendar dates, active days, and execution time to run the FollowUp Agent automatically.
+            </p>
+          </div>
+        </div>
+
+        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+          <button
+            type="button"
+            onClick={() => {
+              const nextState = !schedule.enabled;
+              setSchedule((p) => ({ ...p, enabled: nextState }));
+              saveSchedule({ enabled: nextState });
+            }}
+            style={{
+              background: schedule.enabled ? "#10a37f" : "#f1f5f9",
+              color: schedule.enabled ? "#fff" : "#475569",
+              border: "1px solid",
+              borderColor: schedule.enabled ? "#0e8e6e" : "#cbd5e1",
+              borderRadius: "6px",
+              padding: "7px 14px",
+              fontSize: "12px",
+              fontWeight: 700,
+              display: "flex",
+              alignItems: "center",
+              gap: "6px",
+              cursor: "pointer",
+              transition: "all .15s",
+            }}
+          >
+            {schedule.enabled ? <Check size={14} /> : <PauseCircle size={14} />}
+            {schedule.enabled ? "Schedule Enabled" : "Schedule Paused"}
+          </button>
+        </div>
+      </div>
+
+      {/* Summary Box */}
+      <div
+        style={{
+          background: "var(--canvas)",
+          border: "1px solid var(--line)",
+          borderRadius: "8px",
+          padding: "12px 16px",
+          marginBottom: "20px",
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          flexWrap: "wrap",
+          gap: "10px",
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: "9px" }}>
+          <Clock size={16} color="var(--orange)" />
+          <span style={{ fontSize: "12.5px", fontWeight: 600, color: "var(--ink)" }}>
+            {formatScheduleSummary({ ...schedule, endDate: noEndDate ? null : schedule.endDate })}
+          </span>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
+          {schedule.enabled && (
+            <span
+              style={{
+                fontSize: "11px",
+                fontWeight: 700,
+                color: "#0b7951",
+                background: "#dcfce7",
+                padding: "3px 9px",
+                borderRadius: "6px",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "5px",
+              }}
+            >
+              <span className="pulse-dot" style={{ width: "6px", height: "6px" }} />
+              Live scheduler running
+            </span>
+          )}
+          {schedule.enabled && schedule.nextRunAt && (
+            <span
+              style={{
+                fontSize: "11px",
+                fontWeight: 700,
+                color: "#0b7951",
+                background: "#dcfce7",
+                padding: "3px 9px",
+                borderRadius: "6px",
+              }}
+            >
+              Next run: {new Date(schedule.nextRunAt).toLocaleString([], { dateStyle: "short", timeStyle: "short" })}
+            </span>
+          )}
+        </div>
+      </div>
+
+      {/* 2-Column Controls Grid */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: "24px" }}>
+        
+        {/* Left Column: Form Controls */}
+        <div style={{ display: "flex", flexDirection: "column", gap: "18px" }}>
+          
+          {/* 1. Date Range: When to When */}
+          <div style={{ background: "#fafbfc", border: "1px solid var(--line)", borderRadius: "8px", padding: "16px" }}>
+            <span className="eyebrow" style={{ display: "block", marginBottom: "8px" }}>
+              1. DATE RANGE (WHEN TO WHEN)
+            </span>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", marginBottom: "10px" }}>
+              <div>
+                <label style={{ display: "block", fontSize: "11px", fontWeight: 600, color: "var(--muted)", marginBottom: "4px" }}>
+                  Start Date (From)
+                </label>
+                <input
+                  type="date"
+                  value={schedule.startDate}
+                  onChange={(e) => setSchedule((p) => ({ ...p, startDate: e.target.value }))}
+                  style={{
+                    width: "100%",
+                    padding: "7px 10px",
+                    border: "1px solid #cbd5e1",
+                    borderRadius: "6px",
+                    fontSize: "12px",
+                    background: "#fff",
+                    color: "var(--ink)",
+                  }}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: "block", fontSize: "11px", fontWeight: 600, color: "var(--muted)", marginBottom: "4px" }}>
+                  End Date (To)
+                </label>
+                <input
+                  type="date"
+                  value={noEndDate ? "" : schedule.endDate || ""}
+                  disabled={noEndDate}
+                  onChange={(e) => setSchedule((p) => ({ ...p, endDate: e.target.value }))}
+                  style={{
+                    width: "100%",
+                    padding: "7px 10px",
+                    border: "1px solid #cbd5e1",
+                    borderRadius: "6px",
+                    fontSize: "12px",
+                    background: noEndDate ? "#f1f5f9" : "#fff",
+                    color: noEndDate ? "#94a3b8" : "var(--ink)",
+                    cursor: noEndDate ? "not-allowed" : "text",
+                  }}
+                />
+              </div>
+            </div>
+
+            <label style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "11.5px", color: "var(--ink)", cursor: "pointer" }}>
+              <input
+                type="checkbox"
+                checked={noEndDate}
+                onChange={(e) => {
+                  setNoEndDate(e.target.checked);
+                  if (e.target.checked) {
+                    setSchedule((p) => ({ ...p, endDate: null }));
+                  }
+                }}
+              />
+              No end date (run continuously until stopped)
+            </label>
+          </div>
+
+          {/* 2. Pick Days */}
+          <div style={{ background: "#fafbfc", border: "1px solid var(--line)", borderRadius: "8px", padding: "16px" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px" }}>
+              <span className="eyebrow" style={{ margin: 0 }}>2. PICK DAYS OF WEEK</span>
+              <div style={{ display: "flex", gap: "6px" }}>
+                <button type="button" className="day-preset-btn" onClick={() => setDaysPreset("weekdays")}>
+                  Weekdays
+                </button>
+                <button type="button" className="day-preset-btn" onClick={() => setDaysPreset("weekends")}>
+                  Weekends
+                </button>
+                <button type="button" className="day-preset-btn" onClick={() => setDaysPreset("all")}>
+                  All
+                </button>
+              </div>
+            </div>
+
+            <div style={{ display: "flex", gap: "8px", justifyContent: "space-between", marginBottom: "8px" }}>
+              {DAYS_MAP.map((day) => {
+                const isSelected = schedule.daysOfWeek.includes(day.id);
+                return (
+                  <button
+                    key={day.id}
+                    type="button"
+                    className={`day-pill-btn ${isSelected ? "active" : ""}`}
+                    onClick={() => toggleDay(day.id)}
+                    title={`${day.label} (${isSelected ? "Active" : "Click to select"})`}
+                  >
+                    {day.short[0]}
+                  </button>
+                );
+              })}
+            </div>
+            <small style={{ fontSize: "10.5px", color: "var(--muted)", display: "block" }}>
+              Selected: {DAYS_MAP.filter((d) => schedule.daysOfWeek.includes(d.id)).map((d) => d.short).join(", ") || "None"}
+            </small>
+          </div>
+
+          {/* 3. Schedule Time & Timezone */}
+          <div style={{ background: "#fafbfc", border: "1px solid var(--line)", borderRadius: "8px", padding: "16px" }}>
+            <span className="eyebrow" style={{ display: "block", marginBottom: "8px" }}>
+              3. SCHEDULE TIME & TIMEZONE
+            </span>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1.3fr", gap: "10px" }}>
+              <div>
+                <label style={{ display: "block", fontSize: "11px", fontWeight: 600, color: "var(--muted)", marginBottom: "4px" }}>
+                  Run Time (24h)
+                </label>
+                <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                  <input
+                    type="time"
+                    value={schedule.time}
+                    onChange={(e) => setSchedule((p) => ({ ...p, time: e.target.value }))}
+                    style={{
+                      width: "100%",
+                      padding: "7px 10px",
+                      border: "1px solid #cbd5e1",
+                      borderRadius: "6px",
+                      fontSize: "12px",
+                      background: "#fff",
+                      color: "var(--ink)",
+                    }}
+                  />
+                </div>
+                <span style={{ fontSize: "11px", color: "var(--muted)", marginTop: "4px", display: "block" }}>
+                  {formatTime12h(schedule.time)}
+                </span>
+              </div>
+
+              <div>
+                <label style={{ display: "block", fontSize: "11px", fontWeight: 600, color: "var(--muted)", marginBottom: "4px" }}>
+                  Timezone
+                </label>
+                <select
+                  value={schedule.timezone}
+                  onChange={(e) => setSchedule((p) => ({ ...p, timezone: e.target.value }))}
+                  style={{
+                    width: "100%",
+                    padding: "7px 10px",
+                    border: "1px solid #cbd5e1",
+                    borderRadius: "6px",
+                    fontSize: "12px",
+                    background: "#fff",
+                    color: "var(--ink)",
+                  }}
+                >
+                  {TIMEZONES.map((tz) => (
+                    <option key={tz} value={tz}>
+                      {tz}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Right Column: Visual Interactive Monthly Calendar Preview */}
+        <div style={{ background: "#fafbfc", border: "1px solid var(--line)", borderRadius: "8px", padding: "18px", display: "flex", flexDirection: "column" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "14px" }}>
+            <div>
+              <span className="eyebrow" style={{ margin: 0 }}>CALENDAR OVERVIEW</span>
+              <h4 style={{ margin: "2px 0 0", fontSize: "14px", fontWeight: 700, color: "var(--ink)" }}>
+                {monthLabel}
+              </h4>
+            </div>
+            <div style={{ display: "flex", gap: "4px" }}>
+              <button
+                type="button"
+                onClick={prevMonth}
+                title="Previous month"
+                style={{ width: "28px", height: "28px", borderRadius: "5px", border: "1px solid #cbd5e1", background: "#fff", display: "grid", placeItems: "center", cursor: "pointer" }}
+              >
+                <ChevronLeft size={14} />
+              </button>
+              <button
+                type="button"
+                onClick={nextMonth}
+                title="Next month"
+                style={{ width: "28px", height: "28px", borderRadius: "5px", border: "1px solid #cbd5e1", background: "#fff", display: "grid", placeItems: "center", cursor: "pointer" }}
+              >
+                <ChevronRight size={14} />
+              </button>
+            </div>
+          </div>
+
+          {/* Calendar Grid */}
+          <div className="cal-grid" style={{ flex: 1 }}>
+            {["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"].map((d) => (
+              <div key={d} className="cal-day-head">
+                {d}
+              </div>
+            ))}
+
+            {/* Empty offset days */}
+            {Array.from({ length: startDayOffset }).map((_, i) => (
+              <div key={`offset-${i}`} className="cal-cell muted" />
+            ))}
+
+            {/* Month days */}
+            {Array.from({ length: daysInMonth }).map((_, i) => {
+              const dayNum = i + 1;
+              const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(dayNum).padStart(2, "0")}`;
+              const dayOfWeek = new Date(year, month, dayNum).getDay();
+              const isToday = dateStr === todayStr;
+              const isInRange =
+                (!schedule.startDate || dateStr >= schedule.startDate) &&
+                (noEndDate || !schedule.endDate || dateStr <= schedule.endDate);
+              const isRunDay = schedule.enabled && isInRange && schedule.daysOfWeek.includes(dayOfWeek);
+
+              return (
+                <div
+                  key={dateStr}
+                  className={`cal-cell ${isToday ? "today" : ""} ${isInRange ? "in-range" : ""} ${isRunDay ? "run-day" : ""}`}
+                  onClick={() => onDateClick(dateStr)}
+                  title={`${dateStr}: Click to select date. ${isRunDay ? "✓ Scheduled run" : isInRange ? "In date range" : "Out of range"}`}
+                  style={{ cursor: "pointer" }}
+                >
+                  <span>{dayNum}</span>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Calendar Legend */}
+          <div style={{ display: "flex", gap: "12px", marginTop: "14px", paddingTop: "12px", borderTop: "1px solid #e2e8f0", fontSize: "10.5px", color: "var(--muted)", flexWrap: "wrap" }}>
+            <span style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+              <span style={{ width: "8px", height: "8px", borderRadius: "50%", background: "#10a37f" }} />
+              Scheduled run day
+            </span>
+            <span style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+              <span style={{ width: "8px", height: "8px", borderRadius: "2px", background: "#fff0ec", border: "1px solid #f05a3d" }} />
+              In date range
+            </span>
+            <span style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+              <span style={{ width: "8px", height: "8px", borderRadius: "2px", border: "1px solid var(--ink)" }} />
+              Today
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* Action Footer */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "22px", paddingTop: "18px", borderTop: "1px solid var(--line)", flexWrap: "wrap", gap: "12px" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+          <span style={{ fontSize: "12px", color: "var(--muted)" }}>
+            Click dates in the calendar to quickly set Start/End dates.
+          </span>
+        </div>
+
+        <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
+          <button
+            type="button"
+            className="save-button"
+            style={{ background: "#475569", gap: "6px" }}
+            onClick={testTriggerSchedule}
+            disabled={testingSchedule}
+            title="Execute one test run immediately"
+          >
+            {testingSchedule ? <LoaderCircle className="spin" size={14} /> : <PlayCircle size={14} />}
+            {testingSchedule ? "Running test..." : "Test trigger now"}
+          </button>
+
+          <button
+            type="button"
+            className="save-button"
+            style={{ background: "var(--orange)", gap: "6px" }}
+            onClick={() => saveSchedule()}
+            disabled={savingSchedule}
+          >
+            {savingSchedule ? <LoaderCircle className="spin" size={14} /> : <Save size={14} />}
+            {savingSchedule ? "Saving..." : "Save schedule"}
+          </button>
+        </div>
+      </div>
+    </section>
+  );
 }
 
 function WorkflowView({
@@ -816,6 +1664,12 @@ function WorkflowView({
           </button>
         </div>
       </div>
+
+      {/* Lead Qualification Rules */}
+      <LeadQualificationSection fbUser={fbUser} setNotice={setNotice} />
+
+      {/* Automated Workflow Scheduler */}
+      <ScheduleSection fbUser={fbUser} setNotice={setNotice} onTrigger={onTrigger} />
 
       {/* Full Execution Timeline Modal */}
       {showSummaryModal && execution && (

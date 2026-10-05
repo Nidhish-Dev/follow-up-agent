@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { adminAuth } from "@/lib/firebase-admin";
+import { adminAuth, adminDb } from "@/lib/firebase-admin";
 import { getWorkspaceIntegrationsRef } from "@/lib/workspace-db";
 
 export async function POST(request: NextRequest) {
@@ -26,10 +26,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const qualDoc = await adminDb().collection("workspaces").doc("default").collection("config").doc("qualification").get();
+    const qualification = qualDoc.exists ? qualDoc.data() : { minOpens: 2, minClicks: 1, includeClicked: true, matchMode: "or" };
+
     const payload = {
       source: "dashboard",
       triggeredAt: new Date().toISOString(),
       user: uid,
+      qualification,
       ...(body.payload || {}),
     };
 

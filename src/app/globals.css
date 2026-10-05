@@ -33,5 +33,20 @@
 .btn-stop:hover{background:#b91c1c!important}
 .btn-stop:disabled{opacity:.55;cursor:wait}
 .control-card{background:#fff;border:1px solid var(--line);border-radius:8px;padding:24px;box-shadow:0 2px 8px rgba(16,25,43,0.02)}
+.schedule-section{background:#fff;border:1px solid var(--line);border-radius:10px;padding:26px;margin-top:24px;box-shadow:0 2px 10px rgba(16,25,43,0.03)}
+.day-pill-btn{width:38px;height:38px;border-radius:50%;border:1px solid #dbe1e9;background:#f8fafc;font-size:12px;font-weight:700;color:var(--ink);display:grid;place-items:center;transition:all .15s ease}
+.day-pill-btn:hover{background:#edf2f7;border-color:#cbd5e1}
+.day-pill-btn.active{background:var(--orange);color:#fff;border-color:var(--orange);box-shadow:0 2px 8px rgba(240,90,61,0.25)}
+.day-preset-btn{background:#f1f5f9;border:1px solid #e2e8f0;border-radius:6px;padding:4px 10px;font-size:11px;font-weight:600;color:#475569;transition:all .15s}
+.day-preset-btn:hover{background:#e2e8f0;color:var(--ink)}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;text-align:center}
+.cal-day-head{font-size:10.5px;font-weight:700;color:var(--muted);padding:6px 0}
+.cal-cell{aspect-ratio:1;border-radius:6px;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:11.5px;position:relative;background:#f8fafc;color:var(--ink);transition:all .15s;border:1px solid transparent}
+.cal-cell.muted{opacity:.3}
+.cal-cell.today{border-color:var(--ink);font-weight:700}
+.cal-cell.in-range{background:#fff0ec;color:#9a2c16}
+.cal-cell.run-day{background:#dff8ed;color:#0b7951;font-weight:700;box-shadow:inset 0 0 0 1px #34d399}
+.cal-cell.run-day:after{content:"";position:absolute;bottom:3px;width:4px;height:4px;border-radius:50%;background:#10a37f}
+.cal-cell.disabled-range{background:#f1f5f9;color:#94a3b8}
 @media(max-width:850px){.sidebar{width:64px;padding:18px 8px}.brand span,.workspace,.nav-link{font-size:0;justify-content:center;padding:11px}.brand{padding:0 10px 25px}.sidebar-bottom .user-pill div,.sidebar-bottom .nav-link{display:none}.user-pill{padding:14px 6px}.content{padding:0 20px 30px}.summary-grid,.settings-grid{grid-template-columns:1fr}.summary-card.callout{display:none}.credential-panel{padding:24px}.flow-lane{grid-template-columns:130px 1fr}.workflow-intro{align-items:flex-start;gap:20px;flex-direction:column}.topbar-actions .secure-label{display:none}}@media(max-width:560px){.content{padding:0 14px 20px}.topbar{height:88px}.topbar h1{font-size:23px}.summary-grid{padding:18px 0;grid-template-columns:1fr 1fr}.summary-card{padding:12px;min-height:72px}.summary-icon{width:32px;height:32px}.summary-card strong{font-size:13px}.summary-card span{font-size:9px}.credential-panel{padding:19px}.credential-head{align-items:flex-start}.flow-lane{grid-template-columns:1fr}.lane-label{border-right:0;border-bottom:1px solid var(--line);padding:14px 18px}.flow-nodes{padding:17px}.form-footer{gap:12px}.form-footer>span{display:none}}
 

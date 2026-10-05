@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { getWorkspaceIntegrationsRef } from "@/lib/workspace-db";
+import { adminDb } from "@/lib/firebase-admin";
+import { DEFAULT_QUALIFICATION_RULES } from "@/lib/qualification-types";
 
 export const dynamic = "force-dynamic";
 
@@ -11,6 +13,9 @@ export async function GET() {
     for (const doc of snapshot.docs) {
       records[doc.id] = (doc.data() as { values?: Record<string, string> }).values ?? {};
     }
+
+    const qualDoc = await adminDb().collection("workspaces").doc("default").collection("config").doc("qualification").get();
+    const qualification = qualDoc.exists ? { ...DEFAULT_QUALIFICATION_RULES, ...qualDoc.data() } : DEFAULT_QUALIFICATION_RULES;
 
     const config = {
       telegram: {
@@ -26,6 +31,7 @@ export async function GET() {
         model: records.openai?.model || "gpt-4o-mini",
         systemPrompt: records.openai?.systemPrompt || "",
       },
+      qualification,
     };
 
     return NextResponse.json(config);
