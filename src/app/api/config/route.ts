@@ -17,6 +17,16 @@ export async function GET() {
     const qualDoc = await adminDb().collection("workspaces").doc("default").collection("config").doc("qualification").get();
     const qualification = qualDoc.exists ? { ...DEFAULT_QUALIFICATION_RULES, ...qualDoc.data() } : DEFAULT_QUALIFICATION_RULES;
 
+    const tplDoc = await adminDb().collection("workspaces").doc("default").collection("config").doc("emailTemplate").get();
+    const emailTemplate = tplDoc.exists
+      ? tplDoc.data()
+      : {
+          subject: "You were curious. So we got to work. Here's {{brand}}'s entire AI ops layer.",
+          callUrl: "https://calendly.com/team-grapelabs/30min",
+          senderName: "Kashika Gupta",
+          senderEmail: "team@grapelabs.in",
+        };
+
     const config = {
       telegram: {
         chatId: records.telegram?.chatId || "",
@@ -32,6 +42,7 @@ export async function GET() {
         systemPrompt: records.openai?.systemPrompt || "",
       },
       qualification,
+      emailTemplate,
     };
 
     return NextResponse.json(config);
