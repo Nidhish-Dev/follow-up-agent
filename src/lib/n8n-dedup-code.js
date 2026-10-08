@@ -181,8 +181,8 @@ for (const m of masterRows) {
   masterLeadMap[emailVal] = normalizedLead;
 }
 
-// 2. In-flight pending approvals from Automation response (only prevent spamming unapproved drafts)
-const inFlightEmails = new Set();
+// 2. Exclude ANY lead already present in Automation response (drafted, pending, or sent)
+const existingResponseEmails = new Set();
 try {
   let existingItems = [];
   try {
@@ -194,15 +194,22 @@ try {
   }
   for (const item of existingItems) {
     const row = item.json || {};
-    const stage = String(row.Stage || row.stage || '').toLowerCase().trim();
-    if (['pending_approval', 'awaiting_edit', 'sending'].includes(stage)) {
+    let rowEmail = '';
+    if (row.Email && String(row.Email).includes('@')) rowEmail = String(row.Email).trim().toLowerCase();
+    else if (row.email && String(row.email).includes('@')) rowEmail = String(row.email).trim().toLowerCase();
+    else if (row['Lead Email'] && String(row['Lead Email']).includes('@')) rowEmail = String(row['Lead Email']).trim().toLowerCase();
+    
+    if (!rowEmail) {
       for (const v of Object.values(row)) {
         const s = String(v || '').trim();
         if (s.includes('@') && s.includes('.')) {
-          inFlightEmails.add(s.toLowerCase());
+          rowEmail = s.toLowerCase();
           break;
         }
       }
+    }
+    if (rowEmail) {
+      existingResponseEmails.add(rowEmail);
     }
   }
 } catch (e) {}
@@ -295,7 +302,7 @@ for (const item of trackingItems) {
   if (!rawEmail) continue;
 
   const email = rawEmail.toLowerCase();
-  if (inFlightEmails.has(email)) continue;
+  if (existingResponseEmails.has(email)) continue;
 
   if (!aggregatedLeads[email]) {
     const masterLead = masterLeadMap[email] || {};
