@@ -153,6 +153,24 @@ export async function GET(req: NextRequest) {
       });
     }
 
+    // Auto-sync Deduplicate node to ensure it supports Master Leads if needed
+    const dedupNode = (wfDetail.nodes || []).find((n: any) => {
+      const nm = (n.name || "").toLowerCase();
+      return nm.includes("deduplicate") || nm.includes("qualify");
+    });
+    if (
+      dedupNode &&
+      (!dedupNode.parameters?.jsCode?.includes("Fetch Master Leads") ||
+        !dedupNode.parameters?.jsCode?.includes("masterLeadsList"))
+    ) {
+      try {
+        const { syncN8nWorkflowMasterLeadsNode } = await import("@/lib/sync-n8n");
+        await syncN8nWorkflowMasterLeadsNode(wfDetail.id);
+      } catch (e) {
+        console.warn("Background sync warning:", e);
+      }
+    }
+
     const rawNodes: any[] = wfDetail.nodes || [];
     const connections: Record<string, any> = wfDetail.connections || {};
 

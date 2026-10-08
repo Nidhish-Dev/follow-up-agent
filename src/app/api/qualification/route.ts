@@ -5,8 +5,6 @@ import {
   LeadQualificationRules,
   DEFAULT_QUALIFICATION_RULES,
 } from "@/lib/qualification-types";
-export type { LeadQualificationRules };
-export { DEFAULT_QUALIFICATION_RULES };
 
 async function getDocRef() {
   const db = adminDb();

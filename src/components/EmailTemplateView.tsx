@@ -75,6 +75,7 @@ const AVAILABLE_VARIABLES = [
   { tag: "{{hook_closer}}", label: "Hook Closer (Bold)", desc: "e.g. That's the hard part..." },
   { tag: "{{vertical_focus}}", label: "Vertical Focus", desc: "Specific ops infrastructure focus" },
   { tag: "{{call_url}}", label: "Booking Link", desc: "Calendly tracking URL" },
+  { tag: "{{whatsapp_url}}", label: "WhatsApp Link", desc: "WhatsApp direct chat URL" },
   { tag: "{{sender_name}}", label: "Sender Name", desc: "Kashika Gupta" },
 ];
 
@@ -137,6 +138,9 @@ export function EmailTemplateView({
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to save template");
       setTemplate(data.template);
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("email-template-updated", { detail: data.template }));
+      }
       setNotice({
         type: "success",
         text: "Email HTML template successfully saved! Outbound emails will use this template.",
@@ -188,8 +192,11 @@ export function EmailTemplateView({
       .replace(/\{\{\s*achievement_hook\s*\}\}/gi, lead.hook)
       .replace(/\{\{\s*hook_closer\s*\}\}/gi, lead.closer)
       .replace(/\{\{\s*vertical_focus\s*\}\}/gi, lead.verticalFocus)
-      .replace(/\{\{\s*call_url\s*\}\}/gi, template.callUrl)
-      .replace(/\{\{\s*sender_name\s*\}\}/gi, template.senderName);
+      .replace(/\{\{\s*call_url\s*\}\}/gi, template.callUrl || "https://calendly.com/team-grapelabs/30min")
+      .replace(/\{\{\s*whatsapp_url\s*\}\}/gi, template.whatsappUrl || "https://wa.me/918388892390?text=Hi%20Kashika,%20saw%20your%20email")
+      .replace(/\{\{\s*call_button_text\s*\}\}/gi, template.callButtonText || "Book a Free Call")
+      .replace(/\{\{\s*whatsapp_text\s*\}\}/gi, template.whatsappText || "Text me on WhatsApp")
+      .replace(/\{\{\s*sender_name\s*\}\}/gi, template.senderName || "Kashika Gupta");
   };
 
   const previewSubject = interpolate(template.subject, activeLead);
@@ -378,25 +385,92 @@ export function EmailTemplateView({
               </div>
             </div>
 
-            <div>
-              <label style={{ display: "block", fontSize: "11px", fontWeight: 600, color: "var(--muted)", marginBottom: "4px" }}>
-                Calendly / Booking Link ({"{{call_url}}"})
-              </label>
-              <input
-                type="url"
-                value={template.callUrl}
-                onChange={(e) => setTemplate((p) => ({ ...p, callUrl: e.target.value }))}
-                placeholder="https://calendly.com/your-team/30min"
-                style={{
-                  width: "100%",
-                  padding: "7px 10px",
-                  border: "1px solid #cbd5e1",
-                  borderRadius: "6px",
-                  fontSize: "12px",
-                  background: "#fff",
-                  color: "var(--ink)",
-                }}
-              />
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", marginBottom: "12px" }}>
+              <div>
+                <label style={{ display: "block", fontSize: "11px", fontWeight: 600, color: "var(--muted)", marginBottom: "4px" }}>
+                  Calendly Link ({"{{call_url}}"})
+                </label>
+                <input
+                  type="url"
+                  value={template.callUrl}
+                  onChange={(e) => setTemplate((p) => ({ ...p, callUrl: e.target.value }))}
+                  placeholder="https://calendly.com/your-team/30min"
+                  style={{
+                    width: "100%",
+                    padding: "7px 10px",
+                    border: "1px solid #cbd5e1",
+                    borderRadius: "6px",
+                    fontSize: "12px",
+                    background: "#fff",
+                    color: "var(--ink)",
+                  }}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: "block", fontSize: "11px", fontWeight: 600, color: "var(--muted)", marginBottom: "4px" }}>
+                  Call Button Text (Purple CTA)
+                </label>
+                <input
+                  type="text"
+                  value={template.callButtonText || "Book a Free Call"}
+                  onChange={(e) => setTemplate((p) => ({ ...p, callButtonText: e.target.value }))}
+                  placeholder="Book a Free Call"
+                  style={{
+                    width: "100%",
+                    padding: "7px 10px",
+                    border: "1px solid #cbd5e1",
+                    borderRadius: "6px",
+                    fontSize: "12px",
+                    background: "#fff",
+                    color: "var(--ink)",
+                  }}
+                />
+              </div>
+            </div>
+
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+              <div>
+                <label style={{ display: "block", fontSize: "11px", fontWeight: 600, color: "var(--muted)", marginBottom: "4px" }}>
+                  WhatsApp Link / Chat URL ({"{{whatsapp_url}}"})
+                </label>
+                <input
+                  type="text"
+                  value={template.whatsappUrl || ""}
+                  onChange={(e) => setTemplate((p) => ({ ...p, whatsappUrl: e.target.value }))}
+                  placeholder="https://wa.me/918388892390?text=..."
+                  style={{
+                    width: "100%",
+                    padding: "7px 10px",
+                    border: "1px solid #cbd5e1",
+                    borderRadius: "6px",
+                    fontSize: "12px",
+                    background: "#fff",
+                    color: "var(--ink)",
+                  }}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: "block", fontSize: "11px", fontWeight: 600, color: "var(--muted)", marginBottom: "4px" }}>
+                  WhatsApp Button Text (Green CTA)
+                </label>
+                <input
+                  type="text"
+                  value={template.whatsappText || "Text me on WhatsApp"}
+                  onChange={(e) => setTemplate((p) => ({ ...p, whatsappText: e.target.value }))}
+                  placeholder="Text me on WhatsApp"
+                  style={{
+                    width: "100%",
+                    padding: "7px 10px",
+                    border: "1px solid #cbd5e1",
+                    borderRadius: "6px",
+                    fontSize: "12px",
+                    background: "#fff",
+                    color: "var(--ink)",
+                  }}
+                />
+              </div>
             </div>
           </div>
 

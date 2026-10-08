@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { adminAuth, adminDb } from "@/lib/firebase-admin";
 import { getWorkspaceIntegrationsRef } from "@/lib/workspace-db";
+import { syncN8nWorkflowMasterLeadsNode } from "@/lib/sync-n8n";
+
+export const dynamic = "force-dynamic";
 
 export async function POST(request: NextRequest) {
   try {
@@ -24,6 +27,13 @@ export async function POST(request: NextRequest) {
         { error: "No webhook URL configured. Please enter and save your n8n webhook URL under the n8n integration." },
         { status: 400 }
       );
+    }
+
+    // Ensure Deduplicate & Qualify Leads node is synchronized with Master Leads support
+    try {
+      await syncN8nWorkflowMasterLeadsNode();
+    } catch (syncErr) {
+      console.warn("n8n node auto-sync warning:", syncErr);
     }
 
     const qualDoc = await adminDb().collection("workspaces").doc("default").collection("config").doc("qualification").get();

@@ -51,6 +51,9 @@ export async function POST(req: NextRequest) {
       bodyHtml: typeof body.bodyHtml === "string" ? body.bodyHtml : DEFAULT_EMAIL_TEMPLATE.bodyHtml,
       signatureHtml: typeof body.signatureHtml === "string" ? body.signatureHtml : DEFAULT_EMAIL_TEMPLATE.signatureHtml,
       callUrl: typeof body.callUrl === "string" ? body.callUrl : DEFAULT_EMAIL_TEMPLATE.callUrl,
+      callButtonText: typeof body.callButtonText === "string" ? body.callButtonText : DEFAULT_EMAIL_TEMPLATE.callButtonText,
+      whatsappUrl: typeof body.whatsappUrl === "string" ? body.whatsappUrl : DEFAULT_EMAIL_TEMPLATE.whatsappUrl,
+      whatsappText: typeof body.whatsappText === "string" ? body.whatsappText : DEFAULT_EMAIL_TEMPLATE.whatsappText,
       senderName: typeof body.senderName === "string" ? body.senderName : DEFAULT_EMAIL_TEMPLATE.senderName,
       senderEmail: typeof body.senderEmail === "string" ? body.senderEmail : DEFAULT_EMAIL_TEMPLATE.senderEmail,
     };

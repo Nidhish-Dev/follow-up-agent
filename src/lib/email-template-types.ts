@@ -3,21 +3,35 @@ export interface EmailTemplateConfig {
   bodyHtml: string;
   signatureHtml: string;
   callUrl: string;
+  callButtonText?: string;
+  whatsappUrl?: string;
+  whatsappText?: string;
   senderName: string;
   senderEmail: string;
 }
 
-export const DEFAULT_EMAIL_BODY_HTML = `<div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 14px; line-height: 1.5; color: #111827;">
+export const DEFAULT_EMAIL_BODY_HTML = `<div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 14px; line-height: 1.55; color: #111827;">
   Hi {{first_name}},<br><br>
   {{achievement_hook}} <b>{{hook_closer}}</b><br><br>
   The part that compounds that at this stage is the ops layer underneath, and <b>in 2026 that's exactly where AI should be doing the heavy lifting.</b> Most D2C tools are horizontal, built for every brand and optimised for none. What we build is vertical: an infrastructure designed specifically around how {{brand}} acquires, converts, and retains. {{vertical_focus}} <b>The agents we'd build reflect that.</b><br><br>
   <b>Not a platform. Not generic automation. A system.</b><br><br>
-  I've attached a visual of what that infrastructure looks like for {{brand}} specifically, the agents, how they connect, and what each one runs. If this resonates, reply here or book a call and we'll walk you through it- <a href="{{call_url}}" style="color: #2563eb; text-decoration: underline; font-weight: 600;">Book a Free Call</a>
+  I've attached a visual of what that infrastructure looks like for {{brand}} specifically, the agents, how they connect, and what each one runs. Worth 20 minutes to see what this would look like for {{brand}}? No pitch, no deck, just what we'd fix first. Book a slot or shoot a text if you have any questions.<br><br>
+  <!-- CTA Buttons -->
+  <table border="0" cellpadding="0" cellspacing="0" style="margin: 18px 0 16px 0;">
+    <tr>
+      <td style="padding-right: 12px; padding-bottom: 8px;">
+        <a href="{{call_url}}" style="display: inline-block; background-color: #581c87; color: #ffffff; text-decoration: none; padding: 12px 22px; border-radius: 6px; font-weight: 700; font-size: 14px; line-height: 1.2; text-align: center;">Book a Free Call</a>
+      </td>
+      <td style="padding-bottom: 8px;">
+        <a href="{{whatsapp_url}}" style="display: inline-block; background-color: #25D366; color: #ffffff; text-decoration: none; padding: 12px 22px; border-radius: 6px; font-weight: 700; font-size: 14px; line-height: 1.2; text-align: center;">Text me on WhatsApp</a>
+      </td>
+    </tr>
+  </table>
 </div>`;
 
 export const DEFAULT_EMAIL_SIGNATURE_HTML = `<div style="margin-top: 22px; line-height: 1.45; font-size: 13px; color: #374151;">
   <div style="margin-bottom: 4px;">Best,</div>
-  <div style="margin-bottom: 14px; font-weight: 600; color: #111827;">Nidhish Rathore</div>
+  <div style="margin-bottom: 14px; font-weight: 600; color: #111827;">Kashika Gupta</div>
   <div style="border-left: 2px solid #7c3aed; padding-left: 10px; margin-bottom: 18px;">
     <div style="color: #6d28d9; font-weight: 600; font-size: 13px;">Co-Founder, GrapeLabs AI</div>
     <div style="color: #6b7280; font-size: 12px; margin-top: 2px;">Green Park, New Delhi · 110016</div>
@@ -33,6 +47,9 @@ export const DEFAULT_EMAIL_TEMPLATE: EmailTemplateConfig = {
   bodyHtml: DEFAULT_EMAIL_BODY_HTML,
   signatureHtml: DEFAULT_EMAIL_SIGNATURE_HTML,
   callUrl: "https://calendly.com/team-grapelabs/30min",
-  senderName: "Nidhish Rathore",
+  callButtonText: "Book a Free Call",
+  whatsappUrl: "https://wa.me/918388892390?text=Hi%20Kashika,%20saw%20your%20email%20about%20our%20AI%20ops%20layer",
+  whatsappText: "Text me on WhatsApp",
+  senderName: "Kashika Gupta",
   senderEmail: "team@grapelabs.in",
 };

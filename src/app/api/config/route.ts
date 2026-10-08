@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getWorkspaceIntegrationsRef } from "@/lib/workspace-db";
 import { adminDb } from "@/lib/firebase-admin";
 import { DEFAULT_QUALIFICATION_RULES } from "@/lib/qualification-types";
+import { DEFAULT_EMAIL_TEMPLATE } from "@/lib/email-template-types";
 
 export const dynamic = "force-dynamic";
 
@@ -19,13 +20,8 @@ export async function GET() {
 
     const tplDoc = await adminDb().collection("workspaces").doc("default").collection("config").doc("emailTemplate").get();
     const emailTemplate = tplDoc.exists
-      ? tplDoc.data()
-      : {
-          subject: "You were curious. So we got to work. Here's {{brand}}'s entire AI ops layer.",
-          callUrl: "https://calendly.com/team-grapelabs/30min",
-          senderName: "Kashika Gupta",
-          senderEmail: "team@grapelabs.in",
-        };
+      ? { ...DEFAULT_EMAIL_TEMPLATE, ...tplDoc.data() }
+      : DEFAULT_EMAIL_TEMPLATE;
 
     const config = {
       telegram: {

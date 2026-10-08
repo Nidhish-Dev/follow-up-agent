@@ -7,6 +7,7 @@ import { getApps, initializeApp } from "firebase/app";
 import { DAYS_MAP, formatScheduleSummary, formatTime12h, isScheduleDueNow, ScheduleConfig } from "@/lib/schedule-helper";
 import { DEFAULT_QUALIFICATION_RULES, LeadQualificationRules } from "@/lib/qualification-types";
 import { EmailTemplateView } from "@/components/EmailTemplateView";
+import { LeadFollowUpView } from "@/components/LeadFollowUpView";
 import { N8nLogo, OpenAILogo, GmailLogo, SheetsLogo, TelegramLogo, DriveLogo } from "@/components/ServiceLogos";
 
 type ID = "n8n" | "openai" | "gmail" | "sheets" | "telegram" | "drive";
@@ -112,7 +113,7 @@ const flows = [
 function firebaseClient(){const config={apiKey:process.env.NEXT_PUBLIC_FIREBASE_API_KEY,authDomain:process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,projectId:process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,appId:process.env.NEXT_PUBLIC_FIREBASE_APP_ID};if(!config.apiKey||!config.authDomain||!config.projectId||!config.appId)return null;return getApps().length?getApps()[0]:initializeApp(config)}
 function firebaseError(error:unknown){const code=typeof error==="object"&&error&&"code" in error?String(error.code):"";if(code==="auth/admin-restricted-operation"||code==="auth/operation-not-allowed")return"Enable Anonymous sign-in in Firebase Console: Authentication > Sign-in method > Anonymous.";return error instanceof Error?error.message:"Could not connect to Firebase."}
 export default function Home(){
-  const [tab, setTab] = useState<"integrations" | "workflow" | "email">("workflow"), [id, setId] = useState<ID>("n8n"), [saved, setSaved] = useState<Record<string, any>>({}), [values, setValues] = useState<Record<string, string>>({}), [fbUser, setFbUser] = useState<User | null>(null), [loading, setLoading] = useState(true), [saving, setSaving] = useState(false), [deleting, setDeleting] = useState(false), [confirmDelete, setConfirmDelete] = useState(false), [triggering, setTriggering] = useState(false), [activeExecutionId, setActiveExecutionId] = useState<string | null>(null), [workflowTriggerCount, setWorkflowTriggerCount] = useState(0), [shown, setShown] = useState<Record<string, boolean>>({}), [notice, setNotice] = useState<any>(null), [liveCount, setLiveCount] = useState<number | null>(null); const current = services.find(x => x.id === id)!;
+  const [tab, setTab] = useState<"integrations" | "workflow" | "email" | "leads">("workflow"), [id, setId] = useState<ID>("n8n"), [saved, setSaved] = useState<Record<string, any>>({}), [values, setValues] = useState<Record<string, string>>({}), [fbUser, setFbUser] = useState<User | null>(null), [loading, setLoading] = useState(true), [saving, setSaving] = useState(false), [deleting, setDeleting] = useState(false), [confirmDelete, setConfirmDelete] = useState(false), [triggering, setTriggering] = useState(false), [activeExecutionId, setActiveExecutionId] = useState<string | null>(null), [workflowTriggerCount, setWorkflowTriggerCount] = useState(0), [shown, setShown] = useState<Record<string, boolean>>({}), [notice, setNotice] = useState<any>(null), [liveCount, setLiveCount] = useState<number | null>(null); const current = services.find(x => x.id === id)!;
   const fetchIntegrations = async (user: User) => {
     setLoading(true);
     try {
@@ -174,7 +175,7 @@ export default function Home(){
     }
   };
 
-  return <main className="app-shell">{loading&&<div style={{position:"fixed",inset:0,background:"rgba(245,246,248,0.72)",backdropFilter:"blur(5px)",WebkitBackdropFilter:"blur(5px)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:9999,pointerEvents:"auto"}}><div style={{background:"#fff",padding:"20px 28px",borderRadius:"12px",border:"1px solid var(--line)",boxShadow:"0 14px 38px rgba(16,25,43,0.12)",display:"flex",alignItems:"center",gap:"14px"}}><LoaderCircle className="spin" size={24} color="var(--grape)"/><div style={{display:"flex",flexDirection:"column"}}><span style={{fontSize:"14px",fontWeight:700,color:"var(--ink)",letterSpacing:"-.2px"}}>Loading credentials…</span><span style={{fontSize:"11px",color:"var(--muted)",marginTop:"2px"}}>Syncing with workspace vault</span></div></div></div>}<aside className="sidebar"><div className="brand"><img src="/logo.jpeg" alt="GrapeLabs AI" className="brand-logo-img" /></div><nav><button className={tab==="workflow"?"nav-link active":"nav-link"} onClick={()=>setTab("workflow")}><Workflow size={18}/>Workflow control</button><button className={tab==="email"?"nav-link active":"nav-link"} onClick={()=>setTab("email")}><Mail size={18}/>Email HTML</button><button className={tab==="integrations"?"nav-link active":"nav-link"} onClick={()=>setTab("integrations")}><KeyRound size={18}/>Integrations</button></nav></aside><section className="content"><header className="topbar"><div><p className="eyebrow">FOLLOWUP AGENT</p><h1>{tab==="integrations"?"Connection vault":tab==="email"?"Email HTML":"Workflow control"}</h1></div><div className="topbar-actions"><button className="save-button" style={{background:"#10a37f",gap:"7px"}} disabled={triggering||loading} onClick={triggerWorkflow}>{triggering?<LoaderCircle className="spin" size={15}/>:<Play size={15} fill="currentColor"/>} {triggering?"Starting...":"Start workflow"}</button><span className="secure-label"><LockKeyhole size={14}/>Encrypted at rest</span><button className="icon-button" title="Refresh saved integrations" onClick={()=>fbUser?fetchIntegrations(fbUser):location.reload()}><RefreshCw size={17}/></button></div></header>{notice&&tab!=="integrations"&&<div className={`notice ${notice.type}`} style={{marginTop:"20px"}}><CircleAlert size={16}/>{notice.text}</div>}{tab==="integrations"?<><section className="summary-grid"><div className="summary-card"><div className="summary-icon green"><Check size={19}/></div><div><strong>{services.filter(s=>saved[s.id]?.configured).length} / {services.length}</strong><span>connections configured</span></div></div><div className="summary-card"><div className="summary-icon orange"><Play size={19}/></div><div><strong>{liveCount!=null?liveCount:"—"} live paths</strong><span>from your n8n workflow</span></div></div><div className="summary-card callout"><span>All credential values are encrypted before Firestore storage and return here masked.</span></div></section><div className="settings-grid"><section className="integration-list"><div className="section-heading"><div><p className="eyebrow">CONNECTIONS</p><h2>Services</h2></div></div>{services.map(s=>{const Icon=s.icon;return <button key={s.id} className={id===s.id?"integration-row selected":"integration-row"} onClick={()=>choose(s.id)}><span className="service-icon" style={{backgroundColor:s.bgColor||"#ffffff",border:`1px solid ${s.borderColor||"var(--line)"}`,boxShadow:"0 1px 3px rgba(18,16,38,0.03)"}}><Icon size={22}/></span><span className="service-copy"><b>{s.name}</b><small>{s.description}</small></span><span className={saved[s.id]?.configured?"status-dot ready":"status-dot"}/></button>})}</section><section className="credential-panel"><div className="credential-head"><div className="large-service-icon" style={{backgroundColor:current.bgColor||"#ffffff",border:`1px solid ${current.borderColor||"var(--line)"}`,boxShadow:"0 2px 8px rgba(18,16,38,0.05)"}}><current.icon size={34}/></div><div><p className="eyebrow">{current.name.toUpperCase()} CONNECTION</p><h2>{current.name}</h2><p>{current.description}</p></div></div>{notice&&<div className={`notice ${notice.type}`}><CircleAlert size={16}/><div style={{flex:1}}><span>{notice.text}</span>{notice.results&&<ul style={{margin:"6px 0 0",padding:"0 0 0 18px",fontSize:"0.82em",lineHeight:1.6}}>{(notice.results as {service:string;status:string;detail:string}[]).map(r=><li key={r.service} style={{color:r.status==="created"?"#22c55e":r.status==="failed"?"#ef4444":r.status==="action_required"?"#f59e0b":"inherit"}}><b>{r.service}:</b> {r.detail}</li>)}</ul>}</div></div>}<form onSubmit={save}>{current.fields.map(f=><label className="field" key={f.key}><span>{f.label}</span><div className="input-wrap">{f.textarea?<textarea value={values[f.key]||""} placeholder={f.placeholder} rows={5} style={{resize:"vertical",fontFamily:"inherit",fontSize:"inherit",lineHeight:1.5,padding:"9px 12px",border:"1px solid var(--border)",borderRadius:"8px",background:"var(--input-bg)",color:"inherit",width:"100%",boxSizing:"border-box"}} onChange={e=>setValues(v=>({...v,[f.key]:e.target.value}))}/>:<><input required value={values[f.key]||""} type={f.secret&&!shown[f.key]?"password":"text"} placeholder={f.placeholder} onChange={e=>setValues(v=>({...v,[f.key]:e.target.value}))}/>{f.secret&&<button type="button" className="peek-button" onClick={()=>setShown(v=>({...v,[f.key]:!v[f.key]}))}>{shown[f.key]?<EyeOff size={17}/>:<Eye size={17}/>}</button>}</>}</div></label>)}<div className="form-footer"><span><LockKeyhole size={14}/>Stored in your Firebase vault</span><div style={{display:"flex",gap:"8px"}}>{saved[id]?.configured&&<button type="button" className="save-button" style={{background:confirmDelete?"#ef4444":"transparent",color:confirmDelete?"#fff":"#ef4444",border:"1px solid #ef4444"}} disabled={deleting||loading} onClick={remove}>{deleting?<LoaderCircle className="spin" size={17}/>:<Trash2 size={17}/>} {deleting?"Deleting…":confirmDelete?"Confirm delete?":"Delete"}</button>}<button className="save-button" disabled={saving||loading}>{saving?<LoaderCircle className="spin" size={17}/>:<Save size={17}/>} {saving?"Saving":"Save connection"}</button></div></div></form></section></div></> : tab==="email"?<EmailTemplateView fbUser={fbUser} setNotice={setNotice}/> :<WorkflowView fbUser={fbUser} onTrigger={triggerWorkflow} triggering={triggering} setTriggering={setTriggering} activeExecutionId={activeExecutionId} workflowTriggerCount={workflowTriggerCount} setNotice={setNotice} webhookUrl={saved.n8n?.values?.webhookUrl}/>}</section></main>}
+  return <main className="app-shell">{loading&&<div style={{position:"fixed",inset:0,background:"rgba(245,246,248,0.72)",backdropFilter:"blur(5px)",WebkitBackdropFilter:"blur(5px)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:9999,pointerEvents:"auto"}}><div style={{background:"#fff",padding:"20px 28px",borderRadius:"12px",border:"1px solid var(--line)",boxShadow:"0 14px 38px rgba(16,25,43,0.12)",display:"flex",alignItems:"center",gap:"14px"}}><LoaderCircle className="spin" size={24} color="var(--grape)"/><div style={{display:"flex",flexDirection:"column"}}><span style={{fontSize:"14px",fontWeight:700,color:"var(--ink)",letterSpacing:"-.2px"}}>Loading credentials…</span><span style={{fontSize:"11px",color:"var(--muted)",marginTop:"2px"}}>Syncing with workspace vault</span></div></div></div>}<aside className="sidebar"><div className="brand"><img src="/logo.jpeg" alt="GrapeLabs AI" className="brand-logo-img" /></div><nav><button className={tab==="workflow"?"nav-link active":"nav-link"} onClick={()=>setTab("workflow")}><Workflow size={18}/>Workflow control</button><button className={tab==="leads"?"nav-link active":"nav-link"} onClick={()=>setTab("leads")}><Send size={18}/>Lead follow-up</button><button className={tab==="email"?"nav-link active":"nav-link"} onClick={()=>setTab("email")}><Mail size={18}/>Email HTML</button><button className={tab==="integrations"?"nav-link active":"nav-link"} onClick={()=>setTab("integrations")}><KeyRound size={18}/>Integrations</button></nav></aside><section className="content"><header className="topbar"><div><p className="eyebrow">FOLLOWUP AGENT</p><h1>{tab==="integrations"?"Connection vault":tab==="email"?"Email HTML":tab==="leads"?"Lead follow-up":"Workflow control"}</h1></div><div className="topbar-actions"><button className="save-button" style={{background:"#10a37f",gap:"7px"}} disabled={triggering||loading} onClick={triggerWorkflow}>{triggering?<LoaderCircle className="spin" size={15}/>:<Play size={15} fill="currentColor"/>} {triggering?"Starting...":"Start workflow"}</button><span className="secure-label"><LockKeyhole size={14}/>Encrypted at rest</span><button className="icon-button" title="Refresh saved integrations" onClick={()=>fbUser?fetchIntegrations(fbUser):location.reload()}><RefreshCw size={17}/></button></div></header>{notice&&tab!=="integrations"&&<div className={`notice ${notice.type}`} style={{marginTop:"20px"}}><CircleAlert size={16}/>{notice.text}</div>}{tab==="integrations"?<><section className="summary-grid"><div className="summary-card"><div className="summary-icon green"><Check size={19}/></div><div><strong>{services.filter(s=>saved[s.id]?.configured).length} / {services.length}</strong><span>connections configured</span></div></div><div className="summary-card"><div className="summary-icon orange"><Play size={19}/></div><div><strong>{liveCount!=null?liveCount:"—"} live paths</strong><span>from your n8n workflow</span></div></div><div className="summary-card callout"><span>All credential values are encrypted before Firestore storage and return here masked.</span></div></section><div className="settings-grid"><section className="integration-list"><div className="section-heading"><div><p className="eyebrow">CONNECTIONS</p><h2>Services</h2></div></div>{services.map(s=>{const Icon=s.icon;return <button key={s.id} className={id===s.id?"integration-row selected":"integration-row"} onClick={()=>choose(s.id)}><span className="service-icon" style={{backgroundColor:s.bgColor||"#ffffff",border:`1px solid ${s.borderColor||"var(--line)"}`,boxShadow:"0 1px 3px rgba(18,16,38,0.03)"}}><Icon size={22}/></span><span className="service-copy"><b>{s.name}</b><small>{s.description}</small></span><span className={saved[s.id]?.configured?"status-dot ready":"status-dot"}/></button>})}</section><section className="credential-panel"><div className="credential-head"><div className="large-service-icon" style={{backgroundColor:current.bgColor||"#ffffff",border:`1px solid ${current.borderColor||"var(--line)"}`,boxShadow:"0 2px 8px rgba(18,16,38,0.05)"}}><current.icon size={34}/></div><div><p className="eyebrow">{current.name.toUpperCase()} CONNECTION</p><h2>{current.name}</h2><p>{current.description}</p></div></div>{notice&&<div className={`notice ${notice.type}`}><CircleAlert size={16}/><div style={{flex:1}}><span>{notice.text}</span>{notice.results&&<ul style={{margin:"6px 0 0",padding:"0 0 0 18px",fontSize:"0.82em",lineHeight:1.6}}>{(notice.results as {service:string;status:string;detail:string}[]).map(r=><li key={r.service} style={{color:r.status==="created"?"#22c55e":r.status==="failed"?"#ef4444":r.status==="action_required"?"#f59e0b":"inherit"}}><b>{r.service}:</b> {r.detail}</li>)}</ul>}</div></div>}<form onSubmit={save}>{current.fields.map(f=><label className="field" key={f.key}><span>{f.label}</span><div className="input-wrap">{f.textarea?<textarea value={values[f.key]||""} placeholder={f.placeholder} rows={5} style={{resize:"vertical",fontFamily:"inherit",fontSize:"inherit",lineHeight:1.5,padding:"9px 12px",border:"1px solid var(--border)",borderRadius:"8px",background:"var(--input-bg)",color:"inherit",width:"100%",boxSizing:"border-box"}} onChange={e=>setValues(v=>({...v,[f.key]:e.target.value}))}/>:<><input required value={values[f.key]||""} type={f.secret&&!shown[f.key]?"password":"text"} placeholder={f.placeholder} onChange={e=>setValues(v=>({...v,[f.key]:e.target.value}))}/>{f.secret&&<button type="button" className="peek-button" onClick={()=>setShown(v=>({...v,[f.key]:!v[f.key]}))}>{shown[f.key]?<EyeOff size={17}/>:<Eye size={17}/>}</button>}</>}</div></label>)}<div className="form-footer"><span><LockKeyhole size={14}/>Stored in your Firebase vault</span><div style={{display:"flex",gap:"8px"}}>{saved[id]?.configured&&<button type="button" className="save-button" style={{background:confirmDelete?"#ef4444":"transparent",color:confirmDelete?"#fff":"#ef4444",border:"1px solid #ef4444"}} disabled={deleting||loading} onClick={remove}>{deleting?<LoaderCircle className="spin" size={17}/>:<Trash2 size={17}/>} {deleting?"Deleting…":confirmDelete?"Confirm delete?":"Delete"}</button>}<button className="save-button" disabled={saving||loading}>{saving?<LoaderCircle className="spin" size={17}/>:<Save size={17}/>} {saving?"Saving":"Save connection"}</button></div></div></form></section></div></> : tab==="email"?<EmailTemplateView fbUser={fbUser} setNotice={setNotice}/> : tab==="leads"?<LeadFollowUpView fbUser={fbUser} setNotice={setNotice}/> :<WorkflowView fbUser={fbUser} onTrigger={triggerWorkflow} triggering={triggering} setTriggering={setTriggering} activeExecutionId={activeExecutionId} workflowTriggerCount={workflowTriggerCount} setNotice={setNotice} webhookUrl={saved.n8n?.values?.webhookUrl}/>}</section></main>}
 
 function getNodeIcon(service: string) {
   switch (service) {
@@ -1077,6 +1078,37 @@ function WorkflowView({
   const [togglingActive, setTogglingActive] = useState(false);
   const [stoppingExecution, setStoppingExecution] = useState(false);
   const [copiedWebhook, setCopiedWebhook] = useState(false);
+  const [syncingMaster, setSyncingMaster] = useState(false);
+  const [masterSynced, setMasterSynced] = useState(false);
+
+  const syncMasterLeadsNode = async () => {
+    if (!fbUser) return;
+    setSyncingMaster(true);
+    try {
+      const t = await fbUser.getIdToken();
+      const res = await fetch("/api/n8n/workflow/sync-master", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${t}`,
+        },
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setMasterSynced(true);
+        setNotice({
+          type: "success",
+          text: "Deduplicate & Qualify Leads node synced! Custom mailing and Master Leads are active in n8n.",
+        });
+      } else {
+        throw new Error(data.error || "Sync failed");
+      }
+    } catch (err: any) {
+      setNotice({ type: "error", text: err?.message || "Failed to sync Master Leads node to n8n" });
+    } finally {
+      setSyncingMaster(false);
+    }
+  };
 
   const fetchWorkflow = async (wfId?: string) => {
     if (!fbUser) return;
@@ -1218,6 +1250,24 @@ function WorkflowView({
     if (fbUser) {
       fetchWorkflow("aCjx6rCJa5glRnBS");
       pollExecution();
+      // Auto-sync Master Leads node in n8n with auth
+      fbUser
+        .getIdToken()
+        .then((t) => {
+          fetch("/api/n8n/workflow/sync-master", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${t}`,
+            },
+          })
+            .then((r) => r.json())
+            .then((d) => {
+              if (d.success) setMasterSynced(true);
+            })
+            .catch(() => {});
+        })
+        .catch(() => {});
     }
   }, [fbUser]);
 
@@ -1326,6 +1376,37 @@ function WorkflowView({
             disabled={loadingWorkflow}
           >
             <RefreshCw size={15} className={loadingWorkflow ? "spin" : ""} />
+          </button>
+
+          {/* Sync Master Leads Node Button */}
+          <button
+            type="button"
+            className="btn-sync-master"
+            style={{
+              background: masterSynced ? "#f0fdf4" : "#ffffff",
+              color: masterSynced ? "#15803d" : "#374151",
+              border: masterSynced ? "1px solid #bbf7d0" : "1px solid var(--line)",
+              borderRadius: "9px",
+              padding: "7px 12px",
+              fontSize: "12px",
+              fontWeight: 600,
+              display: "flex",
+              alignItems: "center",
+              gap: "6px",
+              cursor: "pointer",
+            }}
+            onClick={syncMasterLeadsNode}
+            disabled={syncingMaster}
+            title="Ensures Deduplicate & Qualify Leads node picks from Master Leads and crosses all downstream nodes"
+          >
+            {syncingMaster ? (
+              <LoaderCircle size={14} className="spin" />
+            ) : masterSynced ? (
+              <Check size={14} color="#15803d" />
+            ) : (
+              <RefreshCw size={14} />
+            )}
+            {syncingMaster ? "Syncing..." : masterSynced ? "Master Leads Linked" : "Sync Master Leads"}
           </button>
 
           {/* Kill Switch or Publish Workflow button */}
