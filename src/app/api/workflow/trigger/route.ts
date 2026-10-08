@@ -37,13 +37,17 @@ export async function POST(request: NextRequest) {
     }
 
     const qualDoc = await adminDb().collection("workspaces").doc("default").collection("config").doc("qualification").get();
-    const qualification = qualDoc.exists ? qualDoc.data() : { minOpens: 2, minClicks: 1, includeClicked: true, matchMode: "or" };
+    const qualification = qualDoc.exists ? qualDoc.data() : { minOpens: 3, minClicks: 1, includeClicked: true, matchMode: "or" };
+
+    const tplDoc = await adminDb().collection("workspaces").doc("default").collection("config").doc("emailTemplate").get();
+    const emailTemplate = tplDoc.exists ? tplDoc.data() : null;
 
     const payload = {
       source: "dashboard",
       triggeredAt: new Date().toISOString(),
       user: uid,
       qualification,
+      emailTemplate,
       ...(body.payload || {}),
     };
 

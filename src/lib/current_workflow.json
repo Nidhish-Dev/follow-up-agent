@@ -1,0 +1,2391 @@
+{
+  "nodes": [
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -528,
+        -544
+      ],
+      "id": "073e7487-90d5-493b-b9b5-a4974c82706e",
+      "name": "When clicking ‘Execute workflow’"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "return $json.callback_query ? $json : undefined;"
+      },
+      "id": "c04818bc-7115-44fa-9418-2c6b71813226",
+      "name": "Only Callback Queries",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        416,
+        32
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "1WsEuU0eVAGqCJ6XyVfMQ7Qzte6XnOWo8vC-KK27hIYM",
+          "mode": "list",
+          "cachedResultName": "Copy of GrapeLabs Reachouts- NEW"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Automation response",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "row_number": "={{ $('Verify Lead State in Response Tab').first().json.row_number }}",
+            "Stage": "awaiting_edit",
+            "Timestamp": "={{ $now.setZone('Asia/Kolkata').toFormat('yyyy-MM-dd HH:mm:ss') }}"
+          },
+          "matchingColumns": [
+            "row_number"
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "9cb7cfc9-8c7b-4a75-a806-ec8aa0f2e644",
+      "name": "Mark Awaiting Edit",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        1424,
+        672
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "BvcGKZ7z5qPtBa88",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Verify Lead State in Response Tab').first().json.chat_id }}",
+        "text": "=✏️ Editing {{ $('Verify Lead State in Response Tab').item.json.brand }}'s draft for {{ $('Verify Lead State in Response Tab').item.json.lead_email }}.\n\nReply with what you'd like changed — the hook, the diagram/agents, tone, anything. I'll rebuild it and send you a new preview automatically. You can keep editing as many times as you like; tap ✅ Approve when you're happy.",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "id": "8a2b763d-e3b3-4bff-a027-6b9608d80d76",
+      "name": "Ask For Edit Instructions",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1648,
+        672
+      ],
+      "webhookId": "ba9f828e-907e-4023-9ff1-c4d30d549a74",
+      "credentials": {
+        "telegramApi": {
+          "id": "31xBNnmnrkBd7bMo",
+          "name": "Frontend credential - Telegram"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4o-mini",
+          "mode": "list",
+          "cachedResultName": "GPT-4O-MINI"
+        },
+        "responses": {
+          "values": [
+            {
+              "content": "=You are revising an existing AI Ops outreach draft for GrapeLabs AI. The founder reviewing it in Telegram just asked for a specific change. Your top priority is making that exact change visible in the output — a revision that reads almost identical to before is a failed revision.\n\nBrand: {{ $json.brand }}\nIndustry: {{ $json.industry || 'D2C' }}\n\nPrevious draft (JSON, may be empty if none was saved):\n{{ $json.draft_json || '(none saved)' }}\n\nPrevious email text, for context if the JSON above is empty (plain text, tags stripped):\n{{ $json.previous_body_text || '(none saved)' }}\n\nThe founder's requested change, verbatim:\n\"{{ $json.edit_text }}\"\n\nRules:\n1. Treat the requested change as an instruction you must obey, not a suggestion. If it says to change the hook, the hook must clearly read differently afterward. If it says to change an agent's name or description, that field must be different in your output. If it says to remove or add an agent, the counts must reflect that.\n2. Anything the founder did NOT mention should stay as close as possible to the previous draft (use the JSON above as your base if present, otherwise the plain text as your guide). Do not silently rewrite unrelated fields.\n3. If there is no previous draft or previous text at all, write fresh content for this brand and industry, but still apply the founder's instruction as a hard constraint on what you write, never ignore it.\n\nReturn ONLY a raw JSON object (no markdown, no code fences, no preamble) with exactly these keys:\n{\n  \"brand\": \"{{ $json.brand }}\",\n  \"achievement_hook\": \"\",\n  \"hook_closer\": \"\",\n  \"vertical_focus\": \"\",\n  \"attract\": [{\"name\": \"\", \"desc\": \"\"}],\n  \"convert\": [{\"name\": \"\", \"desc\": \"\"}],\n  \"scale\": [{\"name\": \"\", \"desc\": \"\"}],\n  \"support\": [{\"name\": \"\", \"desc\": \"\"}],\n  \"retain\": [{\"name\": \"\", \"desc\": \"\"}],\n  \"brain\": [{\"name\": \"\", \"desc\": \"\"}],\n  \"subject_override\": \"\"\n}\n\nsubject_override:\n- Leave this as an empty string unless the founder's request specifically asks to change the subject line. If they do, put the full new subject line here.\n\nStyle rules for every field:\n- Plain, confident English. No em dashes or en dashes anywhere.\n- Never wrap text in **asterisks**, *single asterisks*, or `backticks`.\n- No hype words (revolutionary, game-changing, seamless, cutting-edge, unlock, elevate).\n- \"name\" under 26 characters, \"desc\" 3 to 5 words, 2 to 3 agents per layer.\n"
+            }
+          ]
+        },
+        "builtInTools": {},
+        "options": {
+          "textFormat": {
+            "textOptions": {
+              "type": "json_object"
+            }
+          }
+        }
+      },
+      "id": "cc810297-d913-42c2-85d2-7e579bdb991b",
+      "name": "Message a model (Revise)",
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2.3,
+      "position": [
+        2208,
+        448
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "7tiQk2BNDFiBNTHE",
+          "name": "Frontend credential - OpenAI"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "let parsed = {};\nlet rawText = \"\";\nconst inputJson = $json;\n\nif (inputJson.output && inputJson.output[0] && inputJson.output[0].content && inputJson.output[0].content[0]) {\n  const c = inputJson.output[0].content[0];\n  if (typeof c.text === \"object\" && c.text !== null) parsed = c.text;\n  else if (typeof c.text === \"string\") rawText = c.text;\n} else if (inputJson.text) {\n  if (typeof inputJson.text === \"object\") parsed = inputJson.text;\n  else rawText = inputJson.text;\n}\n\nif (Object.keys(parsed).length === 0 && rawText) {\n  try {\n    parsed = JSON.parse(rawText.replace(/```json/gi, \"\").replace(/```/g, \"\").trim());\n  } catch (err) {\n    try {\n      const s = rawText.indexOf(\"{\");\n      const e = rawText.lastIndexOf(\"}\");\n      if (s !== -1 && e !== -1) parsed = JSON.parse(rawText.slice(s, e + 1));\n    } catch (e2) { parsed = {}; }\n  }\n}\n\nlet lead = {};\ntry {\n  lead = $(\"Verify Lead State in Response Tab\").first().json || {};\n} catch (e) {\n  try {\n    lead = $(\"Verify Lead State in Response Tab\").item.json || {};\n  } catch (e2) { lead = {}; }\n}\n\nfunction clean(str) {\n  return String(str || \"\")\n    .replace(/\\*\\*/g, \"\")\n    .replace(/(?<!\\w)\\*(?!\\*)/g, \"\")\n    .replace(/`/g, \"\")\n    .replace(/\\s*[\\u2014\\u2013]\\s*/g, \", \")\n    .replace(/\\s+,/g, \",\")\n    .replace(/,\\s*$/g, \"\")\n    .replace(/\\s{2,}/g, \" \")\n    .trim();\n}\nfunction escapeHtml(str) {\n  return String(str || \"\")\n    .replace(/&/g, \"&amp;\")\n    .replace(/</g, \"&lt;\")\n    .replace(/>/g, \"&gt;\")\n    .replace(/\"/g, \"&quot;\")\n    .trim();\n}\nfunction escapeRegex(s) {\n  return s.replace(/[.*+?^${}()|[\\]\\\\]/g, \"\\\\$&\");\n}\nfunction endWithPeriod(s) {\n  return s && !/[.!?]$/.test(s) ? s + \".\" : s;\n}\n\n// Clean recipient name (avoid alphanumeric email handles like nidhishrathore0011)\nlet rawRecipient = clean(lead.full_name || lead.first_name || lead.First_Name || lead.name || \"\");\nif (!rawRecipient || [\"there\", \"valued lead\", \"undefined\", \"null\", \"friend\"].includes(rawRecipient.toLowerCase())) {\n  const emailVal = lead.Email || lead.email || \"\";\n  const emailUser = String(emailVal).split(\"@\")[0] || \"\";\n  const alphaOnly = emailUser.replace(/\\d+/g, \"\").split(/[._-]+/).filter(Boolean);\n  rawRecipient = alphaOnly.length > 0 ? alphaOnly[0] : \"Friend\";\n} else {\n  rawRecipient = rawRecipient.split(/[ ._-]/)[0].replace(/\\d+/g, \"\") || \"Friend\";\n}\nconst recipientName = rawRecipient.charAt(0).toUpperCase() + rawRecipient.slice(1).toLowerCase();\n\nlet resolvedBrand = String(lead.Brand || lead.brand || \"\").trim();\nif (!resolvedBrand && parsed.brand && String(parsed.brand).trim().toLowerCase() !== \"brand\") resolvedBrand = parsed.brand;\nconst brandDisplay = clean(resolvedBrand).replace(/[^\\p{L}\\p{N} &'.\\-]/gu, \"\").replace(/\\s{2,}/g, \" \").trim() || \"your brand\";\nconst brandHtml = escapeHtml(brandDisplay);\nconst brandDot = brandDisplay.toUpperCase().replace(/[\"\\\\]/g, \"\");\n\nconst layerStyles = {\n  attract: { fill: \"#ff8c38\", agentFill: \"#ffe2c7\" },\n  convert: { fill: \"#7b16ff\", agentFill: \"#ded0ff\" },\n  scale:   { fill: \"#00966b\", agentFill: \"#c7f7d4\" },\n  support: { fill: \"#ff3355\", agentFill: \"#ffd0d8\" },\n  retain:  { fill: \"#008ba3\", agentFill: \"#c8f3ff\" },\n  brain:   { fill: \"#8d4200\", agentFill: \"#d5e2ff\" }\n};\n\nlet nodesDef = \"\";\nlet edgesDef = \"\";\nconst hubId = \"hub_circle\";\nnodesDef += \"  \" + hubId + \" [label=\\\"...\\\", shape=circle, style=filled, fillcolor=\\\"#e2e8f0\\\", color=\\\"#94a3b8\\\", width=0.5, fixedsize=true, fontsize=10];\\n\";\nconst rootNodeId = \"master_root\";\nnodesDef += \"  \" + rootNodeId + \" [label=\\\"\" + brandDot + \" AI\\\\nOps Layer\\\", shape=oval, style=filled, fillcolor=\\\"#f1f5f9\\\", color=\\\"#94a3b8\\\", fontsize=9];\\n\";\n\nlet i = 0;\nfor (const [key, style] of Object.entries(layerStyles)) {\n  const agents = parsed[key];\n  if (!Array.isArray(agents) || agents.length === 0) continue;\n\n  const layerNodeId = \"layer_\" + key;\n  nodesDef += \"  \" + layerNodeId + \" [label=\\\"\" + key.toUpperCase() + \"\\\", shape=box, style=\\\"filled,rounded\\\", fillcolor=\\\"\" + style.fill + \"\\\", fontcolor=\\\"#ffffff\\\", fontsize=10, width=1.1, height=0.45];\\n\";\n  edgesDef += \"  \" + rootNodeId + \" -> \" + layerNodeId + \";\\n\";\n\n  agents.forEach((agent) => {\n    i++;\n    const id = \"agent_\" + i;\n    const title = escapeHtml(clean(agent.name || \"Agent\"));\n    const desc = escapeHtml(clean(agent.desc || \"\"));\n    const htmlLabel = \"<<table border=\\\"0\\\" cellborder=\\\"0\\\" cellpadding=\\\"4\\\" cellspacing=\\\"0\\\"><tr><td><b><font point-size=\\\"9\\\">\" + title + \"</font></b></td></tr><tr><td><font point-size=\\\"8\\\" color=\\\"#334155\\\">\" + desc + \"</font></td></tr></table>>\";\n    nodesDef += \"  \" + id + \" [label=\" + htmlLabel + \", shape=box, style=\\\"filled,rounded\\\", fillcolor=\\\"\" + style.agentFill + \"\\\", color=\\\"#94a3b8\\\", margin=\\\"0.1,0.06\\\"];\\n\";\n    edgesDef += \"  \" + layerNodeId + \" -> \" + id + \";\\n\";\n    edgesDef += \"  \" + id + \" -> \" + hubId + \";\\n\";\n  });\n}\n\nconst dotGraph = \"digraph G {\\n  graph [rankdir=LR, nodesep=0.25, ranksep=0.7, bgcolor=\\\"#ffffff\\\", label=\\\"\" + brandDot + \" AI OPS LAYER\\\\n \\\", labelloc=\\\"t\\\", fontsize=18, fontname=\\\"Helvetica-Bold\\\"];\\n  node [fontname=\\\"Helvetica\\\"];\\n  edge [color=\\\"#cbd5e1\\\", penwidth=1.0, arrowhead=none];\\n\\n\" + nodesDef + edgesDef + \"}\";\n\nlet hook = clean(parsed.achievement_hook);\nlet closer = endWithPeriod(clean(parsed.hook_closer));\n\nif (!hook) hook = brandDisplay + \" has built something its customers keep coming back to.\";\nif (!closer) closer = \"That's the hard part, and it's already done.\";\n\nif (hook.toLowerCase().includes(closer.toLowerCase().replace(/\\.$/, \"\"))) {\n  hook = hook.replace(new RegExp(escapeRegex(closer.replace(/\\.$/, \"\")) + \"\\\\.?\", \"i\"), \"\").trim();\n}\nhook = endWithPeriod(hook);\n\nlet verticalFocus = clean(parsed.vertical_focus) || \"Direct-to-consumer acquisition, community-driven repeat purchase, and content-led trust cycles.\";\nverticalFocus = endWithPeriod(verticalFocus.replace(/The agents we'd build reflect that\\\\.?/i, \"\").trim());\n\nfunction matchIndustrySegment(raw) {\n  const norm = String(raw || \"\").toLowerCase().trim().replace(/[^a-z0-9]/g, \"\");\n  if (!norm) return \"D2C-General\";\n  if (norm.includes(\"apparel\") || norm.includes(\"fashion\") || norm.includes(\"clothing\") || norm.includes(\"wear\")) return \"D2C-Apparel\";\n  if (norm.includes(\"hospitality\") || norm.includes(\"hotel\") || norm.includes(\"resort\") || norm.includes(\"lodge\")) return \"Hospitality\";\n  if (norm.includes(\"travel\") || norm.includes(\"tour\") || norm.includes(\"expedition\") || norm.includes(\"trip\")) return \"Travel\";\n  if (norm.includes(\"fitness\") || norm.includes(\"gym\") || norm.includes(\"workout\") || norm.includes(\"crossfit\")) return \"Fitness\";\n  if (norm.includes(\"health\") || norm.includes(\"clinic\") || norm.includes(\"medical\") || norm.includes(\"doctor\") || norm.includes(\"dental\") || norm.includes(\"pharma\")) return \"Health\";\n  if (norm.includes(\"realestate\") || norm.includes(\"realty\") || norm.includes(\"property\") || norm.includes(\"brokerage\") || norm.includes(\"realtor\")) return \"Real Estate\";\n  if (norm.includes(\"agency\") || norm.includes(\"marketing\") || norm.includes(\"advertising\") || norm.includes(\"media\") || norm.includes(\"creative\")) return \"Marketing Agency\";\n  if (norm.includes(\"beauty\") || norm.includes(\"cosmetic\") || norm.includes(\"skincare\") || norm.includes(\"makeup\") || norm.includes(\"haircare\")) return \"D2C-Beauty\";\n  if (norm.includes(\"food\") || norm.includes(\"beverage\") || norm.includes(\"coffee\") || norm.includes(\"tea\") || norm.includes(\"drink\") || norm.includes(\"snack\") || norm.includes(\"bakery\")) return \"D2C-Food&Beverage\";\n  if (norm.includes(\"wellness\") || norm.includes(\"supplement\") || norm.includes(\"vitamin\") || norm.includes(\"nutrition\") || norm.includes(\"mental\")) return \"D2C-Wellness\";\n  if (norm.includes(\"home\") || norm.includes(\"furniture\") || norm.includes(\"decor\") || norm.includes(\"kitchen\") || norm.includes(\"bedding\") || norm.includes(\"goods\")) return \"D2C-HomeGoods\";\n  if (norm.includes(\"d2c\") || norm.includes(\"ecommerce\") || norm.includes(\"retail\")) return \"D2C-General\";\n  return \"D2C-General\";\n}\n\nconst rawIndustry = lead.Industry || lead.industry || parsed.industry || \"\";\nconst matchedIndustry = matchIndustrySegment(rawIndustry);\n\nlet bodyTpl = \"\";\nlet sigTpl = \"\";\nlet callBookingUrl = \"https://calendly.com/team-grapelabs/30min\";\nlet waUrl = \"https://wa.me/918388892300?text=Hi%20Kashika,%20saw%20your%20email%20about%20our%20AI%20ops%20layer\";\nlet callBtnText = \"Book a Free Call\";\nlet waBtnText = \"Text me on WhatsApp\";\nlet subjectTpl = \"You were curious. So we got to work. Here's {{brand}}'s entire AI ops layer.\";\nlet senderName = \"Kashika Gupta\";\n\nlet cfg = null;\ntry {\n  cfg = $(\"Fetch Config\").first()?.json?.emailTemplate;\n} catch (e1) {}\nif (!cfg) {\n  try {\n    const wh = $(\"Webhook\").first()?.json;\n    cfg = wh?.body?.emailTemplate || wh?.emailTemplate;\n  } catch (e2) {}\n}\n\nif (cfg) {\n  if (cfg.signatureHtml) sigTpl = cfg.signatureHtml;\n  if (cfg.callUrl) callBookingUrl = cfg.callUrl;\n  if (cfg.whatsappUrl) waUrl = cfg.whatsappUrl;\n  if (cfg.callButtonText) callBtnText = cfg.callButtonText;\n  if (cfg.whatsappText) waBtnText = cfg.whatsappText;\n  if (cfg.senderName) senderName = cfg.senderName;\n\n  if (cfg.industryTemplates && cfg.industryTemplates[matchedIndustry]) {\n    const indTpl = cfg.industryTemplates[matchedIndustry];\n    if (indTpl.bodyHtml) bodyTpl = indTpl.bodyHtml;\n    if (indTpl.subject) subjectTpl = indTpl.subject;\n  }\n\n  if (!bodyTpl && cfg.bodyHtml) bodyTpl = cfg.bodyHtml;\n  if (!subjectTpl && cfg.subject) subjectTpl = cfg.subject;\n}\n\nif (waUrl.includes(\"{{brand}}\")) {\n  waUrl = waUrl.replace(/\\{\\{\\s*brand\\s*\\}\\}/gi, encodeURIComponent(brandDisplay));\n}\n\nif (!sigTpl) {\n  sigTpl = `<div style=\"margin-top: 22px; line-height: 1.45; font-size: 13px; color: #374151;\">\n  <div style=\"margin-bottom: 4px;\">Best,</div>\n  <div style=\"margin-bottom: 14px; font-weight: 600; color: #111827;\">Kashika Gupta</div>\n  <div style=\"border-left: 2px solid #7c3aed; padding-left: 10px; margin-bottom: 18px;\">\n    <div style=\"color: #6d28d9; font-weight: 600; font-size: 13px;\">Co-Founder, GrapeLabs AI</div>\n    <div style=\"color: #6b7280; font-size: 12px; margin-top: 2px;\">Green Park, New Delhi · 110016</div>\n    <div style=\"color: #6b7280; font-size: 12px; margin-top: 2px;\">Phone: +91 83888 92300</div>\n  </div>\n  <div style=\"font-size: 12px; color: #6b7280; font-style: italic;\">\n    P.S. The irony isn't lost on us. We used our own infrastructure to find you, track your open, and send you this.\n  </div>\n</div>`;\n}\n\nif (!bodyTpl) {\n  bodyTpl = `<div style=\"font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 14px; line-height: 1.55; color: #111827;\">\n  Hi {{first_name}},<br><br>\n  {{achievement_hook}} <b>{{hook_closer}}</b><br><br>\n  The part that compounds that at this stage is the ops layer underneath, and <b>in 2026 that's exactly where AI should be doing the heavy lifting.</b> Most D2C tools are horizontal, built for every brand and optimised for none. What we build is vertical: an infrastructure designed specifically around how {{brand}} acquires, converts, and retains. {{vertical_focus}} <b>The agents we'd build reflect that.</b><br><br>\n  <b>Not a platform. Not generic automation. A system.</b><br><br>\n  I've attached a visual of what that infrastructure looks like for {{brand}} specifically, the agents, how they connect, and what each one runs. Worth 20 minutes to see what this would look like for {{brand}}? No pitch, no deck, just what we'd fix first. Book a slot or shoot a text if you have any questions.<br><br>\n  <!-- CTA Buttons -->\n  <table border=\"0\" cellpadding=\"0\" cellspacing=\"0\" style=\"margin: 18px 0 16px 0;\">\n    <tr>\n      <td style=\"padding-right: 12px; padding-bottom: 8px;\">\n        <a href=\"{{call_url}}\" style=\"display: inline-block; background-color: #581c87; color: #ffffff; text-decoration: none; padding: 12px 22px; border-radius: 6px; font-weight: 700; font-size: 14px; line-height: 1.2; text-align: center;\">{{call_button_text}}</a>\n      </td>\n      <td style=\"padding-bottom: 8px;\">\n        <a href=\"{{whatsapp_url}}\" style=\"display: inline-block; background-color: #25D366; color: #ffffff; text-decoration: none; padding: 12px 22px; border-radius: 6px; font-weight: 700; font-size: 14px; line-height: 1.2; text-align: center;\">{{whatsapp_text}}</a>\n      </td>\n    </tr>\n  </table>\n</div>`;\n}\n\nlet htmlEmail = bodyTpl\n  .replace(/\\{\\{\\s*first_name\\s*\\}\\}/gi, escapeHtml(recipientName))\n  .replace(/\\{\\{\\s*recipientName\\s*\\}\\}/gi, escapeHtml(recipientName))\n  .replace(/\\{\\{\\s*brand\\s*\\}\\}/gi, brandHtml)\n  .replace(/\\{\\{\\s*achievement_hook\\s*\\}\\}/gi, escapeHtml(hook))\n  .replace(/\\{\\{\\s*hook_closer\\s*\\}\\}/gi, escapeHtml(closer))\n  .replace(/\\{\\{\\s*vertical_focus\\s*\\}\\}/gi, escapeHtml(verticalFocus))\n  .replace(/\\{\\{\\s*call_url\\s*\\}\\}/gi, callBookingUrl)\n  .replace(/\\{\\{\\s*whatsapp_url\\s*\\}\\}/gi, waUrl)\n  .replace(/\\{\\{\\s*call_button_text\\s*\\}\\}/gi, callBtnText)\n  .replace(/\\{\\{\\s*whatsapp_text\\s*\\}\\}/gi, waBtnText)\n  .replace(/\\{\\{\\s*sender_name\\s*\\}\\}/gi, senderName);\n\nif (htmlEmail.includes(\"{{signature}}\")) {\n  htmlEmail = htmlEmail.replace(/\\{\\{\\s*signature\\s*\\}\\}/gi, sigTpl);\n}\n\nconst subjectOverride = clean(parsed.subject_override);\nconst exactSubject = subjectOverride || subjectTpl.replace(/\\{\\{\\s*brand\\s*\\}\\}/gi, brandDisplay);\n\nconst rawJson = JSON.stringify({\n  attract: parsed.attract || [], convert: parsed.convert || [], scale: parsed.scale || [],\n  support: parsed.support || [], retain: parsed.retain || [], brain: parsed.brain || [],\n  achievement_hook: hook, hook_closer: closer, vertical_focus: verticalFocus,\n  signature_html: sigTpl,\n  call_url: callBookingUrl,\n  whatsapp_url: waUrl,\n  call_button_text: callBtnText,\n  whatsapp_text: waBtnText,\n  matched_industry: matchedIndustry\n});\n\nreturn {\n  ...lead,\n  ...parsed,\n  brand: brandDisplay,\n  email: lead.lead_email || lead.Email || lead.email || \"\",\n  row_number: lead.row_number,\n  full_name: recipientName,\n  first_name: recipientName,\n  industry: matchedIndustry,\n  achievement_hook: hook,\n  hook_closer: closer,\n  vertical_focus: verticalFocus,\n  email_subject: exactSubject,\n  email_body: htmlEmail,\n  dot_source: dotGraph,\n  raw_json: rawJson\n};"
+      },
+      "id": "69c3054b-0a67-4611-aaa1-7c36d770e4ed",
+      "name": "Build Diagram & Copy (Revise)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2592,
+        560
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://quickchart.io/graphviz",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "graph",
+              "value": "={{ $json.dot_source }}"
+            },
+            {
+              "name": "format",
+              "value": "png"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file"
+            }
+          }
+        }
+      },
+      "id": "e565dfbb-f7e1-4408-9852-606d500b97be",
+      "name": "Render Diagram PNG (Revise)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2800,
+        560
+      ]
+    },
+    {
+      "parameters": {
+        "name": "={{ ($('Build Diagram & Copy (Revise)').item.json.brand || 'brand').replace(/[^a-zA-Z0-9]+/g, '-') }}-ai-ops-{{ $now.toFormat('yyyyMMdd-HHmmss') }}-{{ $itemIndex }}.png",
+        "driveId": {
+          "__rl": true,
+          "value": "My Drive",
+          "mode": "list",
+          "cachedResultName": "My Drive"
+        },
+        "folderId": {
+          "__rl": true,
+          "value": "1ZQpgG3ISussVv6YnhOoXsp9jc91aESwg",
+          "mode": "list",
+          "cachedResultName": "GrapeLabs Outreach Visuals",
+          "cachedResultUrl": "https://drive.google.com/drive/folders/1ZQpgG3ISussVv6YnhOoXsp9jc91aESwg"
+        },
+        "options": {}
+      },
+      "id": "0a927a72-2e63-463e-b38b-26bab0be23e5",
+      "name": "Upload Diagram to Drive (Revise)",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        3008,
+        560
+      ],
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "uAQYK7lUrSv8UQHA",
+          "name": "team@grapelabs.in"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "share",
+        "fileId": {
+          "__rl": true,
+          "value": "={{ $json.id }}",
+          "mode": "id"
+        },
+        "permissionsUi": {
+          "permissionsValues": {
+            "role": "reader",
+            "type": "anyone"
+          }
+        },
+        "options": {}
+      },
+      "id": "8402152b-e5ca-465c-9423-ee61bc301a5c",
+      "name": "Make Diagram Public (Revise)",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        3216,
+        560
+      ],
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "uAQYK7lUrSv8UQHA",
+          "name": "team@grapelabs.in"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "1WsEuU0eVAGqCJ6XyVfMQ7Qzte6XnOWo8vC-KK27hIYM",
+          "mode": "list",
+          "cachedResultName": "Copy of GrapeLabs Reachouts- NEW"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Automation response",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "row_number": "={{ $('Build Diagram & Copy (Revise)').item.json.row_number }}",
+            "Stage": "pending_approval",
+            "Subject": "={{ $('Build Diagram & Copy (Revise)').item.json.email_subject }}",
+            "Body": "={{ $('Build Diagram & Copy (Revise)').item.json.email_body }}",
+            "Diagram URL": "={{ 'https://lh3.googleusercontent.com/d/' + $('Upload Diagram to Drive (Revise)').item.json.id }}",
+            "Draft JSON": "={{ $('Build Diagram & Copy (Revise)').item.json.raw_json }}",
+            "Timestamp": "={{ $now.setZone('Asia/Kolkata').toFormat('yyyy-MM-dd HH:mm:ss') }}"
+          },
+          "matchingColumns": [
+            "row_number"
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "cfb8cb9e-92c6-4b4f-accc-ff9593267599",
+      "name": "Save Revised Draft",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        3424,
+        560
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "BvcGKZ7z5qPtBa88",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "sendPhoto",
+        "chatId": "={{ $('Verify Lead State in Response Tab').first().json.chat_id }}",
+        "file": "={{ 'https://lh3.googleusercontent.com/d/' + $('Upload Diagram to Drive (Revise)').item.json.id }}",
+        "replyMarkup": "inlineKeyboard",
+        "inlineKeyboard": {
+          "rows": [
+            {
+              "row": {
+                "buttons": [
+                  {
+                    "text": "✅ Approve & Send",
+                    "additionalFields": {
+                      "callback_data": "=a_{{ $('Build Diagram & Copy (Revise)').item.json.email }}"
+                    }
+                  },
+                  {
+                    "text": "❌ Reject",
+                    "additionalFields": {
+                      "callback_data": "=r_{{ $('Build Diagram & Copy (Revise)').item.json.email }}"
+                    }
+                  },
+                  {
+                    "text": "✏️ Edit",
+                    "additionalFields": {
+                      "callback_data": "=e_{{ $('Build Diagram & Copy (Revise)').item.json.email }}"
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "additionalFields": {
+          "caption": "=🔄 Updated Preview\n\nBrand: {{ $('Build Diagram & Copy (Revise)').item.json.brand }}\nEmail: {{ $('Build Diagram & Copy (Revise)').item.json.email }}\nSubject: {{ $('Build Diagram & Copy (Revise)').item.json.email_subject }}\n\nHook:\n{{ ($('Build Diagram & Copy (Revise)').item.json.achievement_hook + ' ' + $('Build Diagram & Copy (Revise)').item.json.hook_closer).slice(0, 600) }}\n\nReply again to keep editing, or tap a button below."
+        }
+      },
+      "id": "341fbdbb-365f-4261-96be-4ef0a1a454a0",
+      "name": "Send Revised Preview to Telegram",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        3632,
+        560
+      ],
+      "webhookId": "ece03015-bb9b-48ad-9f8e-dfa0ee311be2",
+      "credentials": {
+        "telegramApi": {
+          "id": "31xBNnmnrkBd7bMo",
+          "name": "Frontend credential - Telegram"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "authentication": "serviceAccount",
+        "documentId": {
+          "__rl": true,
+          "value": "1WsEuU0eVAGqCJ6XyVfMQ7Qzte6XnOWo8vC-KK27hIYM",
+          "mode": "list",
+          "cachedResultName": "Copy of GrapeLabs Reachouts- NEW",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1WsEuU0eVAGqCJ6XyVfMQ7Qzte6XnOWo8vC-KK27hIYM/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 825666244,
+          "mode": "list",
+          "cachedResultName": "Tracking",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1WsEuU0eVAGqCJ6XyVfMQ7Qzte6XnOWo8vC-KK27hIYM/edit#gid=825666244"
+        },
+        "options": {}
+      },
+      "id": "26b69f24-3ce5-48a2-ac5d-12221c8714bc",
+      "name": "Fetch Leads From Tracking",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        336,
+        -368
+      ],
+      "credentials": {
+        "googleApi": {
+          "id": "Wiy90d9mEqwna0e6",
+          "name": "Frontend credential - Sheets"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "authentication": "serviceAccount",
+        "documentId": {
+          "__rl": true,
+          "value": "1WsEuU0eVAGqCJ6XyVfMQ7Qzte6XnOWo8vC-KK27hIYM",
+          "mode": "list",
+          "cachedResultName": "Copy of GrapeLabs Reachouts- NEW",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1WsEuU0eVAGqCJ6XyVfMQ7Qzte6XnOWo8vC-KK27hIYM/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1391208737,
+          "mode": "list",
+          "cachedResultName": "Automation response",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1WsEuU0eVAGqCJ6XyVfMQ7Qzte6XnOWo8vC-KK27hIYM/edit#gid=1391208737"
+        },
+        "options": {}
+      },
+      "id": "c611f0d9-4a4b-49a0-8098-ec94666aefdc",
+      "name": "Fetch Existing Responses",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        496,
+        -368
+      ],
+      "alwaysOutputData": true,
+      "executeOnce": true,
+      "credentials": {
+        "googleApi": {
+          "id": "Wiy90d9mEqwna0e6",
+          "name": "Frontend credential - Sheets"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "authentication": "serviceAccount",
+        "documentId": {
+          "__rl": true,
+          "value": "1WsEuU0eVAGqCJ6XyVfMQ7Qzte6XnOWo8vC-KK27hIYM",
+          "mode": "list",
+          "cachedResultName": "Copy of GrapeLabs Reachouts- NEW",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1WsEuU0eVAGqCJ6XyVfMQ7Qzte6XnOWo8vC-KK27hIYM/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1853475487,
+          "mode": "list",
+          "cachedResultName": "Master Leads",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1WsEuU0eVAGqCJ6XyVfMQ7Qzte6XnOWo8vC-KK27hIYM/edit#gid=1853475487"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        688,
+        -368
+      ],
+      "id": "84c81ed7-28ae-4d66-bf83-e39851146c15",
+      "name": "Fetch Master Leads1",
+      "alwaysOutputData": true,
+      "executeOnce": true,
+      "credentials": {
+        "googleApi": {
+          "id": "Wiy90d9mEqwna0e6",
+          "name": "Frontend credential - Sheets"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// 0. Dynamic Qualification Rules from Frontend / Webhook (with safe defaults)\n// ===== Custom mail path (from dashboard) =====\nconst _in = $input.first()?.json || {};\nconst _b = _in.body || _in;\nif (_b.source === 'manual_followup' || _b.action === 'send_email') {\n  const lead = _b.lead || {};\n  const emailData = _b.email || {};\n  const email = String(emailData.to || lead.email || lead.Email || _b.leadEmail || '').trim();\n  const name = String(lead.name || lead.full_name || lead.firstName || _b.leadName || 'there').trim();\n  const brand = String(lead.brand || lead.Brand || _b.brand || '').trim();\n  if (!email || !brand) {\n    throw new Error('Custom mail needs a lead email and brand');\n  }\n  return [{\n    json: {\n      Email: email,\n      Brand: brand,\n      Industry: lead.industry || lead.Industry || 'D2C',\n      Subject: emailData.subject || '',\n      full_name: name,\n      first_name: name,\n      First_Name: name,\n      Stage: 0,\n      opens: 0,\n      clicks: 0,\n      trigger_reason: 'Manual follow-up from Dashboard',\n      lastTimestamp: '',\n      custom_html: emailData.html || ''\n    }\n  }];\n}\n\nlet rules = {\n  minOpens: 3,\n  includeClicked: true,\n  minClicks: 1,\n  matchMode: 'or' // 'or' | 'and' (qualifies if clicked >= 1 time OR opened >= 3 times)\n};\n\nlet triggerBody = null;\ntry {\n  const wh = $('Webhook').first()?.json;\n  triggerBody = wh?.body || wh;\n} catch (e1) {\n  try {\n    const wh2 = $('Manual trigger / Webhook').first()?.json;\n    triggerBody = wh2?.body || wh2;\n  } catch (e2) {}\n}\nif (triggerBody?.body && typeof triggerBody.body === 'object') {\n  triggerBody = triggerBody.body;\n}\n\nif (triggerBody?.qualification) {\n  rules = {\n    ...rules,\n    ...triggerBody.qualification,\n    minOpens: Number(triggerBody.qualification.minOpens ?? rules.minOpens),\n    minClicks: Number(triggerBody.qualification.minClicks ?? rules.minClicks),\n  };\n}\n\n// 1. Fetch & Index Master Leads from Fetch Master Leads1\nlet masterRows = [];\ntry {\n  masterRows = $('Fetch Master Leads1').all();\n} catch (e1) {\n  try {\n    masterRows = $('Fetch Master Leads').all();\n  } catch (e2) {\n    try {\n      masterRows = $('Fetch master leads').all();\n    } catch (e3) {}\n  }\n}\n\nconst masterNameMap = {};\nconst masterBrandMap = {};\nconst masterLeadMap = {};\n\nfor (const m of masterRows) {\n  const row = m.json || {};\n\n  // Extract email\n  let emailVal = '';\n  for (const [k, v] of Object.entries(row)) {\n    const s = String(v || '').trim();\n    if (s.includes('@') && s.includes('.')) {\n      emailVal = s.toLowerCase();\n      break;\n    }\n  }\n  if (!emailVal && row.email) emailVal = String(row.email).trim().toLowerCase();\n  if (!emailVal && row.Email) emailVal = String(row.Email).trim().toLowerCase();\n  if (!emailVal) continue;\n\n  // Extract full name\n  let fullNameVal = '';\n  for (const [k, v] of Object.entries(row)) {\n    const key = k.toLowerCase().replace(/[^a-z0-9]/g, '');\n    const val = String(v || '').trim();\n    if (!val) continue;\n    if (['name', 'fullname', 'leadname', 'founder', 'contactname'].includes(key) && isNaN(val)) {\n      fullNameVal = val;\n      break;\n    }\n  }\n  if (!fullNameVal && row['Full Name']) fullNameVal = String(row['Full Name']).trim();\n  if (!fullNameVal && row['Contact Name']) fullNameVal = String(row['Contact Name']).trim();\n  if (!fullNameVal && row['Name']) fullNameVal = String(row['Name']).trim();\n  if (!fullNameVal && row['First Name']) fullNameVal = String(row['First Name']).trim();\n  if (!fullNameVal) {\n    const localPart = emailVal.split('@')[0] || '';\n    fullNameVal = localPart.charAt(0).toUpperCase() + localPart.slice(1);\n  }\n\n  // Extract brand / company\n  let brandVal = '';\n  for (const [k, v] of Object.entries(row)) {\n    const key = k.toLowerCase().replace(/[^a-z0-9]/g, '');\n    const val = String(v || '').trim();\n    if (!val) continue;\n    if (['brand', 'brandname', 'company', 'companyname', 'store', 'business', 'client', 'account'].includes(key)) {\n      brandVal = val;\n      break;\n    }\n  }\n  if (!brandVal && row.Brand) brandVal = String(row.Brand).trim();\n  if (!brandVal && row.Company) brandVal = String(row.Company).trim();\n  if (!brandVal) {\n    const domain = (emailVal.split('@')[1] || '').split('.')[0];\n    if (domain && domain !== 'gmail' && domain !== 'yahoo' && domain !== 'hotmail' && domain !== 'outlook') {\n      brandVal = domain.charAt(0).toUpperCase() + domain.slice(1);\n    } else {\n      brandVal = 'Your Brand';\n    }\n  }\n\n  // Extract industry\n  let industryVal = '';\n  for (const [k, v] of Object.entries(row)) {\n    const key = k.toLowerCase().replace(/[^a-z0-9]/g, '');\n    if (['industry', 'vertical', 'niche', 'category'].includes(key)) {\n      industryVal = String(v || '').trim();\n      break;\n    }\n  }\n  if (!industryVal) industryVal = row.Industry || row.industry || 'D2C';\n\n  const hookVal = row.Achievement || row.achievement || row.Hook || row.hook || row.opener || '';\n  const closerVal = row.Closer || row.closer || row.hook_closer || '';\n  const websiteVal = row.Website || row.website || row.url || '';\n  const firstName = fullNameVal.split(' ')[0] || fullNameVal || 'there';\n\n  const normalizedLead = {\n    ...row,\n    Email: emailVal,\n    email: emailVal,\n    Brand: brandVal,\n    brand: brandVal,\n    Industry: industryVal,\n    industry: industryVal,\n    full_name: fullNameVal,\n    first_name: firstName,\n    First_Name: firstName,\n    Name: fullNameVal,\n    name: fullNameVal,\n    Subject: `You were curious. So we got to work. Here's ${brandVal}'s entire AI ops layer.`,\n    subject: `You were curious. So we got to work. Here's ${brandVal}'s entire AI ops layer.`,\n    Hook: hookVal,\n    hook: hookVal,\n    Closer: closerVal,\n    closer: closerVal,\n    Website: websiteVal,\n    website: websiteVal,\n    Stage: 1,\n  };\n\n  masterNameMap[emailVal] = fullNameVal;\n  masterBrandMap[emailVal] = brandVal;\n  masterLeadMap[emailVal] = normalizedLead;\n}\n\n// 2. In-flight pending approvals from Automation response (only prevent spamming unapproved drafts)\nconst inFlightEmails = new Set();\ntry {\n  let existingItems = [];\n  try {\n    existingItems = $('Fetch Existing Responses').all();\n  } catch (e1) {\n    try {\n      existingItems = $('Fetch existing responses').all();\n    } catch (e2) {}\n  }\n  for (const item of existingItems) {\n    const row = item.json || {};\n    const stage = String(row.Stage || row.stage || '').toLowerCase().trim();\n    if (['pending_approval', 'awaiting_edit', 'sending'].includes(stage)) {\n      for (const v of Object.values(row)) {\n        const s = String(v || '').trim();\n        if (s.includes('@') && s.includes('.')) {\n          inFlightEmails.add(s.toLowerCase());\n          break;\n        }\n      }\n    }\n  }\n} catch (e) {}\n\n// 3. Helper to extract real first name (never generic 'there')\nfunction extractRealFirstName(rawName, email) {\n  let cleanName = String(rawName || '').trim();\n  if (!cleanName || ['there', 'valued lead', 'undefined', 'null', 'friend'].includes(cleanName.toLowerCase())) {\n    const userPart = String(email || '').split('@')[0] || '';\n    const alphaOnly = userPart.replace(/d+/g, '').split(/[._-]+/).filter(Boolean);\n    cleanName = alphaOnly.length > 0 ? alphaOnly[0] : 'Friend';\n  } else {\n    cleanName = cleanName.split(/[ ._-]/)[0].replace(/d+/g, '');\n  }\n  if (!cleanName) cleanName = 'Friend';\n  return cleanName.charAt(0).toUpperCase() + cleanName.slice(1).toLowerCase();\n}\n\n// 4. PRIORITY A: Did webhook pass a specific lead from Dashboard / Master Leads?\nconst webhookLead = triggerBody?.lead || (triggerBody?.leadEmail ? {\n  email: triggerBody.leadEmail,\n  brand: triggerBody.brand,\n  name: triggerBody.leadName,\n  industry: triggerBody.industry\n} : null);\n\nif (webhookLead) {\n  let targetEmail = '';\n  for (const v of Object.values(webhookLead)) {\n    const s = String(v || '').trim();\n    if (s.includes('@') && s.includes('.')) {\n      targetEmail = s.toLowerCase();\n      break;\n    }\n  }\n  if (!targetEmail && webhookLead.email) targetEmail = String(webhookLead.email).toLowerCase().trim();\n\n  const matchedMaster = masterLeadMap[targetEmail] || {};\n  const brandVal = String(webhookLead.Brand || webhookLead.brand || matchedMaster.Brand || masterBrandMap[targetEmail] || 'Your Brand').trim();\n  const rawName = String(webhookLead.Name || webhookLead.name || webhookLead.firstName || matchedMaster.full_name || masterNameMap[targetEmail] || '').trim();\n  const realFirstName = extractRealFirstName(rawName, targetEmail);\n  const fullName = rawName && rawName.toLowerCase() !== 'there' ? rawName : realFirstName;\n  const industryVal = webhookLead.Industry || webhookLead.industry || matchedMaster.Industry || 'D2C';\n  const subjectVal = triggerBody?.email?.subject || `You were curious. So we got to work. Here's ${brandVal}'s entire AI ops layer.`;\n\n  return [{\n    json: {\n      ...matchedMaster,\n      ...webhookLead,\n      Email: targetEmail || webhookLead.email,\n      email: targetEmail || webhookLead.email,\n      Brand: brandVal,\n      brand: brandVal,\n      Industry: industryVal,\n      industry: industryVal,\n      Subject: subjectVal,\n      subject: subjectVal,\n      full_name: fullName,\n      first_name: realFirstName,\n      First_Name: realFirstName,\n      Name: fullName,\n      name: fullName,\n      Stage: 1,\n      opens: 1,\n      clicks: 0,\n      trigger_reason: 'Selected from Master Leads',\n      custom_html: triggerBody?.email?.html || ''\n    }\n  }];\n}\n\n// 5. PRIORITY B: Tracking events from Google Sheets Tracking tab\nlet trackingItems = [];\ntry {\n  trackingItems = $('Fetch Leads From Tracking').all();\n} catch (e1) {\n  try {\n    trackingItems = $('Fetch leads from Tracking').all();\n  } catch (e2) {}\n}\n\nconst aggregatedLeads = {};\nfor (const item of trackingItems) {\n  const row = item.json || {};\n  let rawEmail = '';\n  for (const v of Object.values(row)) {\n    const s = String(v || '').trim();\n    if (s.includes('@') && s.includes('.')) { rawEmail = s; break; }\n  }\n  if (!rawEmail) continue;\n\n  const email = rawEmail.toLowerCase();\n  if (inFlightEmails.has(email)) continue;\n\n  if (!aggregatedLeads[email]) {\n    const masterLead = masterLeadMap[email] || {};\n    const rawResolvedName = masterNameMap[email] || row.Name || row['Full Name'] || '';\n    const realFirstName = extractRealFirstName(rawResolvedName, rawEmail);\n    const fullName = rawResolvedName && rawResolvedName.toLowerCase() !== 'there' ? rawResolvedName : realFirstName;\n\n    let brandName = String(row.Brand || row.brand || masterBrandMap[email] || masterLead.Brand || '').trim();\n    if (!brandName) {\n      const domain = (rawEmail.split('@')[1] || '').split('.')[0];\n      if (domain && !['gmail', 'yahoo', 'hotmail', 'outlook', 'icloud', 'protonmail'].includes(domain.toLowerCase())) {\n        brandName = domain.charAt(0).toUpperCase() + domain.slice(1);\n      } else {\n        brandName = 'Your Brand';\n      }\n    }\n\n    const industryVal = row.Industry || row.industry || masterLead.Industry || 'D2C';\n    const defaultSubject = `You were curious. So we got to work. Here's ${brandName}'s entire AI ops layer.`;\n\n    aggregatedLeads[email] = {\n      ...masterLead,\n      ...row,\n      Email: rawEmail,\n      email: rawEmail,\n      Brand: brandName,\n      brand: brandName,\n      Industry: industryVal,\n      industry: industryVal,\n      Subject: row.Subject || defaultSubject,\n      subject: row.Subject || defaultSubject,\n      full_name: fullName,\n      first_name: realFirstName,\n      First_Name: realFirstName,\n      Name: fullName,\n      name: fullName,\n      Stage: 1,\n      opens: 0,\n      clicks: 0,\n      lastTimestamp: row.Timestamp || ''\n    };\n  }\n\n  const event = String(row.Event || row.event || '').trim().toUpperCase();\n  if (event.includes('CLICK')) {\n    aggregatedLeads[email].clicks += 1;\n  } else if (event.includes('OPEN')) {\n    aggregatedLeads[email].opens += 1;\n  }\n\n  if (row.Timestamp) {\n    aggregatedLeads[email].lastTimestamp = row.Timestamp;\n  }\n}\n\nconst qualified = [];\nfor (const email in aggregatedLeads) {\n  const lead = aggregatedLeads[email];\n  if (!lead.Brand) continue;\n\n  const meetsOpens = lead.opens >= rules.minOpens;\n  const meetsClicks = rules.includeClicked && (lead.clicks >= rules.minClicks);\n\n  let isQualified = false;\n  let triggerReason = '';\n\n  if (rules.matchMode === 'and') {\n    isQualified = meetsOpens && meetsClicks;\n    if (isQualified) triggerReason = `Clicked CTA (${lead.clicks} clicks) & Opened ${lead.opens} times`;\n  } else {\n    // 'or' mode (qualifies if clicked >= minClicks OR opened >= minOpens)\n    if (meetsClicks) {\n      triggerReason = `Clicked CTA (${lead.clicks} clicks, ${lead.opens} opens)`;\n      isQualified = true;\n    } else if (meetsOpens) {\n      triggerReason = `Opened ${lead.opens} times (min ${rules.minOpens})`;\n      isQualified = true;\n    }\n  }\n\n  if (isQualified && triggerReason) {\n    lead.trigger_reason = triggerReason;\n    qualified.push({ json: lead });\n  }\n}\n\n// CRITICAL: Prioritize ALL Clicked leads first!\n// Then sort by opens descending, then recent timestamp descending\nqualified.sort((a, b) => {\n  const aClicks = Number(a.json.clicks || 0);\n  const bClicks = Number(b.json.clicks || 0);\n  if (bClicks !== aClicks) {\n    return bClicks - aClicks; // Clicks first!\n  }\n  const aOpens = Number(a.json.opens || 0);\n  const bOpens = Number(b.json.opens || 0);\n  if (bOpens !== aOpens) {\n    return bOpens - aOpens; // Higher opens next!\n  }\n  return String(b.json.lastTimestamp || '').localeCompare(String(a.json.lastTimestamp || ''));\n});\n\n// Return all qualified leads without dropping clicked ones (default limit 100)\nconst maxLimit = Number(triggerBody?.limit || 100);\nreturn qualified.slice(0, maxLimit);\n"
+      },
+      "id": "f6d580cd-7349-4a1f-92f7-a283028d18c4",
+      "name": "Deduplicate & Qualify Leads1",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        896,
+        -368
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "let parsed = {};\nlet rawText = \"\";\nconst inputJson = $json;\n\nif (inputJson.output && inputJson.output[0] && inputJson.output[0].content && inputJson.output[0].content[0]) {\n  const c = inputJson.output[0].content[0];\n  if (typeof c.text === \"object\" && c.text !== null) parsed = c.text;\n  else if (typeof c.text === \"string\") rawText = c.text;\n} else if (inputJson.text) {\n  if (typeof inputJson.text === \"object\") parsed = inputJson.text;\n  else rawText = inputJson.text;\n}\n\nif (Object.keys(parsed).length === 0 && rawText) {\n  try {\n    parsed = JSON.parse(rawText.replace(/```json/gi, \"\").replace(/```/g, \"\").trim());\n  } catch (err) {\n    try {\n      const s = rawText.indexOf(\"{\");\n      const e = rawText.lastIndexOf(\"}\");\n      if (s !== -1 && e !== -1) parsed = JSON.parse(rawText.slice(s, e + 1));\n    } catch (e2) { parsed = {}; }\n  }\n}\n\nlet lead = {};\ntry {\n  lead = $(\"Deduplicate & Qualify Leads1\").item.json || {};\n} catch (e) {\n  try {\n    const q = $(\"Deduplicate & Qualify Leads1\");\n    lead = q.all()[$itemIndex]?.json || q.first()?.json || {};\n  } catch (e2) { lead = {}; }\n}\n\nfunction clean(str) {\n  return String(str || \"\")\n    .replace(/\\*\\*/g, \"\")\n    .replace(/(?<!\\w)\\*(?!\\*)/g, \"\")\n    .replace(/`/g, \"\")\n    .replace(/\\s*[\\u2014\\u2013]\\s*/g, \", \")\n    .replace(/\\s+,/g, \",\")\n    .replace(/,\\s*$/g, \"\")\n    .replace(/\\s{2,}/g, \" \")\n    .trim();\n}\nfunction escapeHtml(str) {\n  return String(str || \"\")\n    .replace(/&/g, \"&amp;\")\n    .replace(/</g, \"&lt;\")\n    .replace(/>/g, \"&gt;\")\n    .replace(/\"/g, \"&quot;\")\n    .trim();\n}\nfunction escapeRegex(s) {\n  return s.replace(/[.*+?^${}()|[\\]\\\\]/g, \"\\\\$&\");\n}\nfunction endWithPeriod(s) {\n  return s && !/[.!?]$/.test(s) ? s + \".\" : s;\n}\n\n// Clean recipient name (avoid alphanumeric email handles like nidhishrathore0011)\nlet rawRecipient = clean(lead.full_name || lead.first_name || lead.First_Name || lead.name || \"\");\nif (!rawRecipient || [\"there\", \"valued lead\", \"undefined\", \"null\", \"friend\"].includes(rawRecipient.toLowerCase())) {\n  const emailVal = lead.Email || lead.email || \"\";\n  const emailUser = String(emailVal).split(\"@\")[0] || \"\";\n  const alphaOnly = emailUser.replace(/\\d+/g, \"\").split(/[._-]+/).filter(Boolean);\n  rawRecipient = alphaOnly.length > 0 ? alphaOnly[0] : \"Friend\";\n} else {\n  rawRecipient = rawRecipient.split(/[ ._-]/)[0].replace(/\\d+/g, \"\") || \"Friend\";\n}\nconst recipientName = rawRecipient.charAt(0).toUpperCase() + rawRecipient.slice(1).toLowerCase();\n\nlet resolvedBrand = String(lead.Brand || lead.brand || \"\").trim();\nif (!resolvedBrand && parsed.brand && String(parsed.brand).trim().toLowerCase() !== \"brand\") resolvedBrand = parsed.brand;\nconst brandDisplay = clean(resolvedBrand).replace(/[^\\p{L}\\p{N} &'.\\-]/gu, \"\").replace(/\\s{2,}/g, \" \").trim() || \"your brand\";\nconst brandHtml = escapeHtml(brandDisplay);\nconst brandDot = brandDisplay.toUpperCase().replace(/[\"\\\\]/g, \"\");\n\nconst layerStyles = {\n  attract: { fill: \"#ff8c38\", agentFill: \"#ffe2c7\" },\n  convert: { fill: \"#7b16ff\", agentFill: \"#ded0ff\" },\n  scale:   { fill: \"#00966b\", agentFill: \"#c7f7d4\" },\n  support: { fill: \"#ff3355\", agentFill: \"#ffd0d8\" },\n  retain:  { fill: \"#008ba3\", agentFill: \"#c8f3ff\" },\n  brain:   { fill: \"#8d4200\", agentFill: \"#d5e2ff\" }\n};\n\nlet nodesDef = \"\";\nlet edgesDef = \"\";\nconst hubId = \"hub_circle\";\nnodesDef += \"  \" + hubId + \" [label=\\\"...\\\", shape=circle, style=filled, fillcolor=\\\"#e2e8f0\\\", color=\\\"#94a3b8\\\", width=0.5, fixedsize=true, fontsize=10];\\n\";\nconst rootNodeId = \"master_root\";\nnodesDef += \"  \" + rootNodeId + \" [label=\\\"\" + brandDot + \" AI\\\\nOps Layer\\\", shape=oval, style=filled, fillcolor=\\\"#f1f5f9\\\", color=\\\"#94a3b8\\\", fontsize=9];\\n\";\n\nlet i = 0;\nfor (const [key, style] of Object.entries(layerStyles)) {\n  const agents = parsed[key];\n  if (!Array.isArray(agents) || agents.length === 0) continue;\n\n  const layerNodeId = \"layer_\" + key;\n  nodesDef += \"  \" + layerNodeId + \" [label=\\\"\" + key.toUpperCase() + \"\\\", shape=box, style=\\\"filled,rounded\\\", fillcolor=\\\"\" + style.fill + \"\\\", fontcolor=\\\"#ffffff\\\", fontsize=10, width=1.1, height=0.45];\\n\";\n  edgesDef += \"  \" + rootNodeId + \" -> \" + layerNodeId + \";\\n\";\n\n  agents.forEach((agent) => {\n    i++;\n    const id = \"agent_\" + i;\n    const title = escapeHtml(clean(agent.name || \"Agent\"));\n    const desc = escapeHtml(clean(agent.desc || \"\"));\n    const htmlLabel = \"<<table border=\\\"0\\\" cellborder=\\\"0\\\" cellpadding=\\\"4\\\" cellspacing=\\\"0\\\"><tr><td><b><font point-size=\\\"9\\\">\" + title + \"</font></b></td></tr><tr><td><font point-size=\\\"8\\\" color=\\\"#334155\\\">\" + desc + \"</font></td></tr></table>>\";\n    nodesDef += \"  \" + id + \" [label=\" + htmlLabel + \", shape=box, style=\\\"filled,rounded\\\", fillcolor=\\\"\" + style.agentFill + \"\\\", color=\\\"#94a3b8\\\", margin=\\\"0.1,0.06\\\"];\\n\";\n    edgesDef += \"  \" + layerNodeId + \" -> \" + id + \";\\n\";\n    edgesDef += \"  \" + id + \" -> \" + hubId + \";\\n\";\n  });\n}\n\nconst dotGraph = \"digraph G {\\n  graph [rankdir=LR, nodesep=0.25, ranksep=0.7, bgcolor=\\\"#ffffff\\\", label=\\\"\" + brandDot + \" AI OPS LAYER\\\\n \\\", labelloc=\\\"t\\\", fontsize=18, fontname=\\\"Helvetica-Bold\\\"];\\n  node [fontname=\\\"Helvetica\\\"];\\n  edge [color=\\\"#cbd5e1\\\", penwidth=1.0, arrowhead=none];\\n\\n\" + nodesDef + edgesDef + \"}\";\n\nlet hook = clean(parsed.achievement_hook);\nlet closer = endWithPeriod(clean(parsed.hook_closer));\n\nif (!hook) hook = brandDisplay + \" has built something its customers keep coming back to.\";\nif (!closer) closer = \"That's the hard part, and it's already done.\";\n\nif (hook.toLowerCase().includes(closer.toLowerCase().replace(/\\.$/, \"\"))) {\n  hook = hook.replace(new RegExp(escapeRegex(closer.replace(/\\.$/, \"\")) + \"\\\\.?\", \"i\"), \"\").trim();\n}\nhook = endWithPeriod(hook);\n\nlet verticalFocus = clean(parsed.vertical_focus) || \"Direct-to-consumer acquisition, community-driven repeat purchase, and content-led trust cycles.\";\nverticalFocus = endWithPeriod(verticalFocus.replace(/The agents we'd build reflect that\\\\.?/i, \"\").trim());\n\nfunction matchIndustrySegment(raw) {\n  const norm = String(raw || \"\").toLowerCase().trim().replace(/[^a-z0-9]/g, \"\");\n  if (!norm) return \"D2C-General\";\n  if (norm.includes(\"apparel\") || norm.includes(\"fashion\") || norm.includes(\"clothing\") || norm.includes(\"wear\")) return \"D2C-Apparel\";\n  if (norm.includes(\"hospitality\") || norm.includes(\"hotel\") || norm.includes(\"resort\") || norm.includes(\"lodge\")) return \"Hospitality\";\n  if (norm.includes(\"travel\") || norm.includes(\"tour\") || norm.includes(\"expedition\") || norm.includes(\"trip\")) return \"Travel\";\n  if (norm.includes(\"fitness\") || norm.includes(\"gym\") || norm.includes(\"workout\") || norm.includes(\"crossfit\")) return \"Fitness\";\n  if (norm.includes(\"health\") || norm.includes(\"clinic\") || norm.includes(\"medical\") || norm.includes(\"doctor\") || norm.includes(\"dental\") || norm.includes(\"pharma\")) return \"Health\";\n  if (norm.includes(\"realestate\") || norm.includes(\"realty\") || norm.includes(\"property\") || norm.includes(\"brokerage\") || norm.includes(\"realtor\")) return \"Real Estate\";\n  if (norm.includes(\"agency\") || norm.includes(\"marketing\") || norm.includes(\"advertising\") || norm.includes(\"media\") || norm.includes(\"creative\")) return \"Marketing Agency\";\n  if (norm.includes(\"beauty\") || norm.includes(\"cosmetic\") || norm.includes(\"skincare\") || norm.includes(\"makeup\") || norm.includes(\"haircare\")) return \"D2C-Beauty\";\n  if (norm.includes(\"food\") || norm.includes(\"beverage\") || norm.includes(\"coffee\") || norm.includes(\"tea\") || norm.includes(\"drink\") || norm.includes(\"snack\") || norm.includes(\"bakery\")) return \"D2C-Food&Beverage\";\n  if (norm.includes(\"wellness\") || norm.includes(\"supplement\") || norm.includes(\"vitamin\") || norm.includes(\"nutrition\") || norm.includes(\"mental\")) return \"D2C-Wellness\";\n  if (norm.includes(\"home\") || norm.includes(\"furniture\") || norm.includes(\"decor\") || norm.includes(\"kitchen\") || norm.includes(\"bedding\") || norm.includes(\"goods\")) return \"D2C-HomeGoods\";\n  if (norm.includes(\"d2c\") || norm.includes(\"ecommerce\") || norm.includes(\"retail\")) return \"D2C-General\";\n  return \"D2C-General\";\n}\n\nconst rawIndustry = lead.Industry || lead.industry || parsed.industry || \"\";\nconst matchedIndustry = matchIndustrySegment(rawIndustry);\n\nlet bodyTpl = \"\";\nlet sigTpl = \"\";\nlet callBookingUrl = \"https://calendly.com/team-grapelabs/30min\";\nlet waUrl = \"https://wa.me/918388892300?text=Hi%20Kashika,%20saw%20your%20email%20about%20our%20AI%20ops%20layer\";\nlet callBtnText = \"Book a Free Call\";\nlet waBtnText = \"Text me on WhatsApp\";\nlet subjectTpl = \"You were curious. So we got to work. Here's {{brand}}'s entire AI ops layer.\";\nlet senderName = \"Kashika Gupta\";\n\nlet cfg = null;\ntry {\n  cfg = $(\"Fetch Config\").first()?.json?.emailTemplate;\n} catch (e1) {}\nif (!cfg) {\n  try {\n    const wh = $(\"Webhook\").first()?.json;\n    cfg = wh?.body?.emailTemplate || wh?.emailTemplate;\n  } catch (e2) {}\n}\n\nif (cfg) {\n  if (cfg.signatureHtml) sigTpl = cfg.signatureHtml;\n  if (cfg.callUrl) callBookingUrl = cfg.callUrl;\n  if (cfg.whatsappUrl) waUrl = cfg.whatsappUrl;\n  if (cfg.callButtonText) callBtnText = cfg.callButtonText;\n  if (cfg.whatsappText) waBtnText = cfg.whatsappText;\n  if (cfg.senderName) senderName = cfg.senderName;\n\n  if (cfg.industryTemplates && cfg.industryTemplates[matchedIndustry]) {\n    const indTpl = cfg.industryTemplates[matchedIndustry];\n    if (indTpl.bodyHtml) bodyTpl = indTpl.bodyHtml;\n    if (indTpl.subject) subjectTpl = indTpl.subject;\n  }\n\n  if (!bodyTpl && cfg.bodyHtml) bodyTpl = cfg.bodyHtml;\n  if (!subjectTpl && cfg.subject) subjectTpl = cfg.subject;\n}\n\nif (waUrl.includes(\"{{brand}}\")) {\n  waUrl = waUrl.replace(/\\{\\{\\s*brand\\s*\\}\\}/gi, encodeURIComponent(brandDisplay));\n}\n\nif (!sigTpl) {\n  sigTpl = `<div style=\"margin-top: 22px; line-height: 1.45; font-size: 13px; color: #374151;\">\n  <div style=\"margin-bottom: 4px;\">Best,</div>\n  <div style=\"margin-bottom: 14px; font-weight: 600; color: #111827;\">Kashika Gupta</div>\n  <div style=\"border-left: 2px solid #7c3aed; padding-left: 10px; margin-bottom: 18px;\">\n    <div style=\"color: #6d28d9; font-weight: 600; font-size: 13px;\">Co-Founder, GrapeLabs AI</div>\n    <div style=\"color: #6b7280; font-size: 12px; margin-top: 2px;\">Green Park, New Delhi · 110016</div>\n    <div style=\"color: #6b7280; font-size: 12px; margin-top: 2px;\">Phone: +91 83888 92300</div>\n  </div>\n  <div style=\"font-size: 12px; color: #6b7280; font-style: italic;\">\n    P.S. The irony isn't lost on us. We used our own infrastructure to find you, track your open, and send you this.\n  </div>\n</div>`;\n}\n\nif (!bodyTpl) {\n  bodyTpl = `<div style=\"font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 14px; line-height: 1.55; color: #111827;\">\n  Hi {{first_name}},<br><br>\n  {{achievement_hook}} <b>{{hook_closer}}</b><br><br>\n  The part that compounds that at this stage is the ops layer underneath, and <b>in 2026 that's exactly where AI should be doing the heavy lifting.</b> Most D2C tools are horizontal, built for every brand and optimised for none. What we build is vertical: an infrastructure designed specifically around how {{brand}} acquires, converts, and retains. {{vertical_focus}} <b>The agents we'd build reflect that.</b><br><br>\n  <b>Not a platform. Not generic automation. A system.</b><br><br>\n  I've attached a visual of what that infrastructure looks like for {{brand}} specifically, the agents, how they connect, and what each one runs. Worth 20 minutes to see what this would look like for {{brand}}? No pitch, no deck, just what we'd fix first. Book a slot or shoot a text if you have any questions.<br><br>\n  <!-- CTA Buttons -->\n  <table border=\"0\" cellpadding=\"0\" cellspacing=\"0\" style=\"margin: 18px 0 16px 0;\">\n    <tr>\n      <td style=\"padding-right: 12px; padding-bottom: 8px;\">\n        <a href=\"{{call_url}}\" style=\"display: inline-block; background-color: #581c87; color: #ffffff; text-decoration: none; padding: 12px 22px; border-radius: 6px; font-weight: 700; font-size: 14px; line-height: 1.2; text-align: center;\">{{call_button_text}}</a>\n      </td>\n      <td style=\"padding-bottom: 8px;\">\n        <a href=\"{{whatsapp_url}}\" style=\"display: inline-block; background-color: #25D366; color: #ffffff; text-decoration: none; padding: 12px 22px; border-radius: 6px; font-weight: 700; font-size: 14px; line-height: 1.2; text-align: center;\">{{whatsapp_text}}</a>\n      </td>\n    </tr>\n  </table>\n</div>`;\n}\n\nlet htmlEmail = bodyTpl\n  .replace(/\\{\\{\\s*first_name\\s*\\}\\}/gi, escapeHtml(recipientName))\n  .replace(/\\{\\{\\s*recipientName\\s*\\}\\}/gi, escapeHtml(recipientName))\n  .replace(/\\{\\{\\s*brand\\s*\\}\\}/gi, brandHtml)\n  .replace(/\\{\\{\\s*achievement_hook\\s*\\}\\}/gi, escapeHtml(hook))\n  .replace(/\\{\\{\\s*hook_closer\\s*\\}\\}/gi, escapeHtml(closer))\n  .replace(/\\{\\{\\s*vertical_focus\\s*\\}\\}/gi, escapeHtml(verticalFocus))\n  .replace(/\\{\\{\\s*call_url\\s*\\}\\}/gi, callBookingUrl)\n  .replace(/\\{\\{\\s*whatsapp_url\\s*\\}\\}/gi, waUrl)\n  .replace(/\\{\\{\\s*call_button_text\\s*\\}\\}/gi, callBtnText)\n  .replace(/\\{\\{\\s*whatsapp_text\\s*\\}\\}/gi, waBtnText)\n  .replace(/\\{\\{\\s*sender_name\\s*\\}\\}/gi, senderName);\n\nif (htmlEmail.includes(\"{{signature}}\")) {\n  htmlEmail = htmlEmail.replace(/\\{\\{\\s*signature\\s*\\}\\}/gi, sigTpl);\n}\n\nconst subjectOverride = clean(parsed.subject_override);\nconst exactSubject = subjectOverride || subjectTpl.replace(/\\{\\{\\s*brand\\s*\\}\\}/gi, brandDisplay);\n\nconst rawJson = JSON.stringify({\n  attract: parsed.attract || [], convert: parsed.convert || [], scale: parsed.scale || [],\n  support: parsed.support || [], retain: parsed.retain || [], brain: parsed.brain || [],\n  achievement_hook: hook, hook_closer: closer, vertical_focus: verticalFocus,\n  signature_html: sigTpl,\n  call_url: callBookingUrl,\n  whatsapp_url: waUrl,\n  call_button_text: callBtnText,\n  whatsapp_text: waBtnText,\n  matched_industry: matchedIndustry\n});\n\nreturn {\n  ...lead,\n  ...parsed,\n  brand: brandDisplay,\n  email: lead.Email || lead.email || \"\",\n  full_name: recipientName,\n  first_name: recipientName,\n  industry: matchedIndustry,\n  achievement_hook: hook,\n  hook_closer: closer,\n  vertical_focus: verticalFocus,\n  email_subject: exactSubject,\n  email_body: htmlEmail,\n  dot_source: dotGraph,\n  raw_json: rawJson\n};"
+      },
+      "id": "b710788b-5e71-4f34-82e2-f5a3663e324b",
+      "name": "Build Diagram & Copy",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1600,
+        -368
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://quickchart.io/graphviz",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "graph",
+              "value": "={{ $json.dot_source }}"
+            },
+            {
+              "name": "format",
+              "value": "png"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file"
+            }
+          }
+        }
+      },
+      "id": "2c0de6e1-491a-4fff-8312-cb8f700cc1e5",
+      "name": "Render Diagram PNG",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1808,
+        -368
+      ]
+    },
+    {
+      "parameters": {
+        "name": "={{ ($('Build Diagram & Copy').item.json.brand || 'brand').replace(/[^a-zA-Z0-9]+/g, '-') }}-ai-ops-{{ $now.toFormat('yyyyMMdd-HHmmss') }}-{{ $itemIndex }}.png",
+        "driveId": {
+          "__rl": true,
+          "value": "My Drive",
+          "mode": "list",
+          "cachedResultName": "My Drive",
+          "cachedResultUrl": "https://drive.google.com/drive/my-drive"
+        },
+        "folderId": {
+          "__rl": true,
+          "value": "1_5dgSebWn_hXxzm8PwAI_j9ARpMcyyRQ",
+          "mode": "id"
+        },
+        "options": {}
+      },
+      "id": "34f2b2e8-0ff4-4d67-a47e-f632841a0f64",
+      "name": "Upload Diagram to Drive1",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        2016,
+        -368
+      ],
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "Qy8S5aAVmKYKoF2w",
+          "name": "Frontend credential - Drive"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "share",
+        "fileId": {
+          "__rl": true,
+          "value": "={{ $json.id }}",
+          "mode": "id"
+        },
+        "permissionsUi": {
+          "permissionsValues": {
+            "role": "reader",
+            "type": "anyone"
+          }
+        },
+        "options": {}
+      },
+      "id": "9c83cd11-0fb0-471c-8039-9cac0d06d41f",
+      "name": "Make Diagram Public1",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        2224,
+        -368
+      ],
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "Qy8S5aAVmKYKoF2w",
+          "name": "Frontend credential - Drive"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "callback",
+        "queryId": "={{ $json.callback_query.id }}",
+        "additionalFields": {
+          "text": "Got it, processing..."
+        }
+      },
+      "id": "6adb98ba-76eb-4d45-b6b3-b5c51c7a3976",
+      "name": "Answer Button Tap1",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        640,
+        32
+      ],
+      "webhookId": "afe31000-a4d9-4dbf-a43b-450303948a1b",
+      "credentials": {
+        "telegramApi": {
+          "id": "31xBNnmnrkBd7bMo",
+          "name": "Frontend credential - Telegram"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const isCallback = !!$json.callback_query;\nconst msg = $json.message;\nconst isPlainText = !isCallback && !!msg && typeof msg.text === 'string' && msg.text.trim().length > 0;\n\nif (isCallback) {\n  const cb = $json.callback_query;\n  const rawData = String(cb.data || '').trim().replace(/^=+/, '');\n\n  let action = 'unknown';\n  let email = '';\n  let m;\n\n  // Short prefixes keep callback_data under Telegram's 64-byte limit.\n  if ((m = rawData.match(/^(?:a|approve)_(.+)$/i))) { action = 'approve'; email = m[1]; }\n  else if ((m = rawData.match(/^(?:r|reject)_(.+)$/i))) { action = 'reject'; email = m[1]; }\n  else if ((m = rawData.match(/^(?:e|edit)_(.+)$/i))) { action = 'edit'; email = m[1]; }\n\n  if (!email || !email.includes('@')) {\n    const caption = cb.message?.caption || cb.message?.text || '';\n    const match = caption.match(/([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,})/i);\n    if (match) email = match[1];\n  }\n\n  return {\n    action,\n    lead_email: String(email || '').trim().toLowerCase(),\n    edit_text: '',\n    callback_id: cb.id || '',\n    chat_id: cb.message?.chat?.id || cb.from?.id || '1562172942'\n  };\n}\n\nif (isPlainText) {\n  const text = msg.text.trim();\n  // Ignore bot commands like /start so they don't get treated as edit instructions\n  if (text.startsWith('/')) {\n    return { action: 'ignore', lead_email: '', edit_text: '', callback_id: '', chat_id: msg.chat?.id || '' };\n  }\n  return {\n    action: 'edit_text',\n    lead_email: '',\n    edit_text: text,\n    callback_id: '',\n    chat_id: msg.chat?.id || msg.from?.id || '1562172942'\n  };\n}\n\nreturn { action: 'ignore', lead_email: '', edit_text: '', callback_id: '', chat_id: '' };\n"
+      },
+      "id": "e13b46be-6687-407a-a5c3-b04edf836e66",
+      "name": "Parse Callback Payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        528,
+        208
+      ]
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1WsEuU0eVAGqCJ6XyVfMQ7Qzte6XnOWo8vC-KK27hIYM",
+          "mode": "list",
+          "cachedResultName": "Copy of GrapeLabs Reachouts- NEW"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Automation response",
+          "mode": "name"
+        },
+        "options": {}
+      },
+      "id": "32b6a23c-e665-451c-b3e2-888bd4df6ac6",
+      "name": "Read Automation response",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        752,
+        208
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "BvcGKZ7z5qPtBa88",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const allRows = $input.all();\nconst target = $('Parse Callback Payload').first().json;\nconst targetEmail = String(target.lead_email || '').toLowerCase().trim();\nconst action = String(target.action || 'unknown').toLowerCase().trim();\nconst editText = String(target.edit_text || '').trim();\n\n// Non-button, non-edit Telegram updates: stop silently\nif (action === 'ignore') return [];\n\nfunction extractFirstName(bodyHtml) {\n  const m = String(bodyHtml || '').match(/Hi\\s+([^,<]+),/i);\n  let cleanName = m ? m[1].trim() : 'there';\n  if (!cleanName || ['there', 'valued lead', 'undefined', 'null', 'friend'].includes(cleanName.toLowerCase())) {\n    cleanName = 'Friend';\n  } else {\n    cleanName = cleanName.split(' ')[0].replace(/\\d+/g, '') || 'Friend';\n  }\n  return cleanName.charAt(0).toUpperCase() + cleanName.slice(1).toLowerCase();\n}\n\nconst base = {\n  _found: false,\n  is_already_sent: false,\n  lead_email: targetEmail,\n  action,\n  chat_id: target.chat_id,\n  edit_text: editText,\n  reason: ''\n};\n\n// --- approve / reject / edit: look up the row by the email in the button ---\nif (['approve', 'reject', 'edit'].includes(action)) {\n  if (!targetEmail) return [{ json: { ...base, reason: 'No email found in the button data' } }];\n\n  const record = [...allRows].reverse().find(item => {\n    const rowEmail = String(item.json.Email || item.json.email || '').toLowerCase().trim();\n    return rowEmail === targetEmail;\n  });\n  if (!record) return [{ json: { ...base, reason: 'Lead not found in Automation response tab' } }];\n\n  const r = record.json;\n  const currentStage = String(r.Stage || r.stage || '').toLowerCase().trim();\n  const rowNum = r.row_number || (allRows.indexOf(record) + 2);\n  const brandName = r.Brand || 'your brand';\n  const industry = r.Industry || 'D2C';\n  const subject = r.Subject || (`You were curious. So we got to work. Here's ${brandName}'s entire AI ops layer.`);\n  const chartUrl = r['Diagram URL'] || r.diagram_url || '';\n  const draftJson = r['Draft JSON'] || r.draft_json || '';\n  const isAlreadySent = ['sent', 'sending'].includes(currentStage);\n\n  if (action === 'edit') {\n    return [{\n      json: {\n        ...base,\n        _found: true,\n        is_already_sent: isAlreadySent,\n        row_number: rowNum,\n        brand: brandName,\n        industry,\n        subject,\n        chart_url: chartUrl,\n        draft_json: draftJson,\n        first_name: extractFirstName(r.Body),\n        current_stage: currentStage\n      }\n    }];\n  }\n\n  // approve / reject: build send-ready HTML body with styled buttons and tracking\n  const WEBHOOK_BASE = 'https://n8n-production-0ef21.up.railway.app';\n  // Read dynamic destinations and button labels from Draft JSON\n  let djData = {};\n  try {\n    djData = typeof draftJson === 'string' ? JSON.parse(draftJson) : (draftJson || {});\n  } catch (e) {}\n\n  let CALL_URL = djData.call_url || 'https://calendly.com/team-grapelabs/30min';\n  let WA_URL = djData.whatsapp_url || 'https://wa.me/918388892300?text=Hi%20Kashika,%20saw%20your%20email%20about%20our%20AI%20ops%20layer';\n  if (WA_URL.includes('{{brand}}')) {\n    WA_URL = WA_URL.replace(/\\{\\{\\s*brand\\s*\\}\\}/gi, encodeURIComponent(brandName));\n  }\n  const CALL_BTN_TEXT = djData.call_button_text || 'Book a Free Call';\n  const WA_BTN_TEXT = djData.whatsapp_text || 'Text me on WhatsApp';\n\n  const qs = (o) => Object.entries(o).map(([k, v]) => k + '=' + encodeURIComponent(v)).join('&');\n  const common = { email: targetEmail, brand: brandName, industry, subject, followup: 'aiops' };\n  const clickUrl = WEBHOOK_BASE + '/webhook/track-click?' + qs({ ...common, button: 'bookcall', dest: CALL_URL });\n  const waClickUrl = WEBHOOK_BASE + '/webhook/track-click?' + qs({ ...common, button: 'whatsapp', dest: WA_URL });\n  const pixelUrl = WEBHOOK_BASE + '/webhook/track-open?' + qs(common);\n\n  // Styled button table matching template\n  const buttonTable = `\n<table border=\"0\" cellpadding=\"0\" cellspacing=\"0\" style=\"margin: 18px 0 16px 0;\">\n  <tr>\n    <td style=\"padding-right: 12px; padding-bottom: 8px;\">\n      <a href=\"${clickUrl}\" style=\"display: inline-block; background-color: #581c87; color: #ffffff; text-decoration: none; padding: 12px 22px; border-radius: 6px; font-weight: 700; font-size: 14px; line-height: 1.2; text-align: center;\">${CALL_BTN_TEXT}</a>\n    </td>\n    <td style=\"padding-bottom: 8px;\">\n      <a href=\"${waClickUrl}\" style=\"display: inline-block; background-color: #25D366; color: #ffffff; text-decoration: none; padding: 12px 22px; border-radius: 6px; font-weight: 700; font-size: 14px; line-height: 1.2; text-align: center;\">${WA_BTN_TEXT}</a>\n    </td>\n  </tr>\n</table>`.trim();\n\n  const pixelTag = `<img src=\"${pixelUrl}\" width=\"1\" height=\"1\" style=\"display:none !important; width:1px; height:1px; border:0; outline:none;\" alt=\"\" />`;\n\n  let rawBody = String(r.Body || '').trim();\n  rawBody = rawBody\n    .replace(/<table[^>]*>[\\s\\S]*?<\\/table>/gi, '')\n    .replace(/<img[^>]*>/gi, '')\n    .replace(/^=\\s*/, '')\n    .replace(/\\s*[\\u2014\\u2013]\\s*/g, ', ')\n    .trim();\n\n  // Strip old raw links to prevent duplicates\n  rawBody = rawBody\n    .replace(/<a\\b[^>]*>.*?<\\/a>/gi, '')\n    .replace(/https?:\\/\\/calendly\\.com[^\\s\"<]*/gi, '')\n    .replace(/https?:\\/\\/wa\\.me[^\\s\"<]*/gi, '')\n    .trim();\n\n  if (!rawBody.includes('<br>') && !rawBody.includes('<p>')) {\n    rawBody = rawBody\n      .replace(/\\\\n\\\\n/g, '<br><br>')\n      .replace(/\\n\\n/g, '<br><br>')\n      .replace(/\\\\n/g, '<br>')\n      .replace(/\\n/g, '<br>');\n  }\n\n  const diagramHtml = chartUrl ? `\n<table border=\"0\" cellpadding=\"0\" cellspacing=\"0\" style=\"margin: 18px 0 22px 0;\">\n  <tr>\n    <td>\n      <a href=\"${chartUrl}\" target=\"_blank\">\n        <img src=\"${chartUrl}\" alt=\"${brandName} AI Ops Layer\" width=\"600\" border=\"0\" style=\"display: block; width: 100%; max-width: 650px; height: auto; border: 1px solid #e5e7eb; border-radius: 6px;\" />\n      </a>\n    </td>\n  </tr>\n</table>` : '';\n\n  // 1. Check if signature was saved in Draft JSON\n  let dynamicSignature = '';\n  try {\n    const dj = typeof draftJson === 'string' ? JSON.parse(draftJson) : (draftJson || {});\n    if (dj.signature_html) dynamicSignature = dj.signature_html;\n  } catch (e) {}\n\n  // 2. Fallback signature with Kashika Gupta\n  const signatureHtml = dynamicSignature || `\n<div style=\"margin-top: 22px; line-height: 1.45; font-size: 13px; color: #374151;\">\n  <div style=\"margin-bottom: 4px;\">Best,</div>\n  <div style=\"margin-bottom: 14px; font-weight: 600; color: #111827;\">Kashika Gupta</div>\n  <div style=\"border-left: 2px solid #7c3aed; padding-left: 10px; margin-bottom: 18px;\">\n    <div style=\"color: #6d28d9; font-weight: 600; font-size: 13px;\">Co-Founder, GrapeLabs AI</div>\n    <div style=\"color: #6b7280; font-size: 12px; margin-top: 2px;\">Green Park, New Delhi · 110016</div>\n    <div style=\"color: #6b7280; font-size: 12px; margin-top: 2px;\">Phone: +91 83888 92300</div>\n  </div>\n  <div style=\"font-size: 12px; color: #6b7280; font-style: italic;\">\n    P.S. The irony isn't lost on us. We used our own infrastructure to find you, track your open, and send you this.\n  </div>\n</div>`;\n\n  const finalHtmlBody = `\n<div style=\"font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 14px; line-height: 1.55; color: #111827;\">\n  ${rawBody}\n  ${buttonTable}\n  ${diagramHtml}\n  ${signatureHtml}\n  ${pixelTag}\n</div>`.trim();\n\n  return [{\n    json: {\n      ...base,\n      _found: true,\n      is_already_sent: isAlreadySent,\n      row_number: rowNum,\n      brand: brandName,\n      industry,\n      subject,\n      body: finalHtmlBody,\n      chart_url: chartUrl,\n      current_stage: currentStage\n    }\n  }];\n}\n\n// --- edit_text: plain-text reply ---\nif (action === 'edit_text') {\n  const rows = allRows.filter(item =>\n    String(item.json.Stage || item.json.stage || '').toLowerCase().trim() === 'awaiting_edit'\n  );\n  if (rows.length === 0) {\n    return [{ json: { ...base, reason: \"No pending edit found. Tap the Edit button on a preview first, then reply with your changes.\" } }];\n  }\n  rows.sort((a, b) => new Date(b.json.Timestamp || 0) - new Date(a.json.Timestamp || 0));\n  const record = rows[0];\n  const r = record.json;\n  const rowNum = r.row_number || (allRows.indexOf(record) + 2);\n  const resolvedEmail = String(r.Email || r.email || '').toLowerCase().trim();\n\n  return [{\n    json: {\n      ...base,\n      _found: true,\n      is_already_sent: false,\n      lead_email: resolvedEmail,\n      row_number: rowNum,\n      brand: r.Brand || 'your brand',\n      industry: r.Industry || 'D2C',\n      subject: r.Subject || '',\n      chart_url: r['Diagram URL'] || r.diagram_url || '',\n      draft_json: r['Draft JSON'] || r.draft_json || '',\n      previous_body_text: String(r.Body || '').replace(/<[^>]+>/g, ' ').replace(/\\s{2,}/g, ' ').trim().slice(0, 1200),\n      first_name: extractFirstName(r.Body),\n      current_stage: 'awaiting_edit'\n    }\n  }];\n}\n\nreturn [{ json: { ...base, reason: 'Unknown button action' } }];\n"
+      },
+      "id": "e8f386c1-1e77-4820-bf94-6f5bce218048",
+      "name": "Verify Lead State in Response Tab",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        960,
+        208
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json._found }}",
+                    "rightValue": false,
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.is_already_sent }}",
+                    "rightValue": true,
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "approve",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "reject",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "edit",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "edit_text",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "2637e165-747e-45dd-9d4c-582f4d3332b3",
+      "name": "Route Decision",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [
+        1184,
+        192
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $json.chat_id }}",
+        "text": "=⚠️ {{ $json.reason || 'Could not process that.' }}{{ $json.lead_email ? '\\nEmail: ' + $json.lead_email : '' }}",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "id": "a9745eca-f9d6-4493-9777-c04418afbfd4",
+      "name": "Notify Not Found1",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1424,
+        -112
+      ],
+      "webhookId": "8ef46a90-0d5f-496f-8570-f5e31b0e35a3",
+      "credentials": {
+        "telegramApi": {
+          "id": "5us8YfHC7nYcmQzc",
+          "name": "Nidhish test"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $json.chat_id }}",
+        "text": "=⚠️ Skipped: proposal for {{ $json.lead_email }} was already sent (or is sending). No duplicate email went out.",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "id": "53097777-8b94-4e98-bce7-1c90876e7ae1",
+      "name": "Notify Already Sent",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1424,
+        48
+      ],
+      "webhookId": "f8e1cb99-2b65-4db1-b9c3-8aeb942c367f",
+      "credentials": {
+        "telegramApi": {
+          "id": "31xBNnmnrkBd7bMo",
+          "name": "Frontend credential - Telegram"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "1WsEuU0eVAGqCJ6XyVfMQ7Qzte6XnOWo8vC-KK27hIYM",
+          "mode": "list",
+          "cachedResultName": "Copy of GrapeLabs Reachouts- NEW"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Automation response",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "row_number": "={{ $('Verify Lead State in Response Tab').first().json.row_number }}",
+            "Stage": "sending",
+            "Timestamp": "={{ $now.setZone('Asia/Kolkata').toFormat('yyyy-MM-dd HH:mm:ss') }}"
+          },
+          "matchingColumns": [
+            "row_number"
+          ],
+          "schema": [
+            {
+              "id": "Email",
+              "displayName": "Email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Brand",
+              "displayName": "Brand",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Industry",
+              "displayName": "Industry",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Opens",
+              "displayName": "Opens",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Clicks",
+              "displayName": "Clicks",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Trigger Reason",
+              "displayName": "Trigger Reason",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Stage",
+              "displayName": "Stage",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Subject",
+              "displayName": "Subject",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Body",
+              "displayName": "Body",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Diagram URL",
+              "displayName": "Diagram URL",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Timestamp",
+              "displayName": "Timestamp",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "row_number",
+              "displayName": "row_number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "readOnly": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "904e9eac-a033-4e2c-a546-1a202df945b1",
+      "name": "Mark Sending1",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        1424,
+        208
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "BvcGKZ7z5qPtBa88",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $('Verify Lead State in Response Tab').first().json.lead_email }}",
+        "subject": "={{ $('Verify Lead State in Response Tab').first().json.subject }}",
+        "message": "={{ $('Verify Lead State in Response Tab').first().json.body }}",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "id": "1474e684-aa43-4262-a14c-adb8f4ed3fe1",
+      "name": "Send Gmail to Lead",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        1648,
+        208
+      ],
+      "webhookId": "a92eca1d-6dd7-4e42-8ac3-d2a5ee4356f5",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "fEAgkIEGBQVtJ7xA",
+          "name": "team@grapelabs.in"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "1WsEuU0eVAGqCJ6XyVfMQ7Qzte6XnOWo8vC-KK27hIYM",
+          "mode": "list",
+          "cachedResultName": "Copy of GrapeLabs Reachouts- NEW"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Automation response",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "row_number": "={{ $('Verify Lead State in Response Tab').first().json.row_number }}",
+            "Stage": "sent",
+            "Timestamp": "={{ $now.setZone('Asia/Kolkata').toFormat('yyyy-MM-dd HH:mm:ss') }}"
+          },
+          "matchingColumns": [
+            "row_number"
+          ],
+          "schema": [
+            {
+              "id": "Email",
+              "displayName": "Email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Brand",
+              "displayName": "Brand",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Industry",
+              "displayName": "Industry",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Opens",
+              "displayName": "Opens",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Clicks",
+              "displayName": "Clicks",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Trigger Reason",
+              "displayName": "Trigger Reason",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Stage",
+              "displayName": "Stage",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Subject",
+              "displayName": "Subject",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Body",
+              "displayName": "Body",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Diagram URL",
+              "displayName": "Diagram URL",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Timestamp",
+              "displayName": "Timestamp",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "row_number",
+              "displayName": "row_number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "readOnly": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "ef3b0f0d-ff1e-421e-85f3-7a05dee3dcc6",
+      "name": "Mark Sent in Response Sheet",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        1872,
+        128
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "BvcGKZ7z5qPtBa88",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Verify Lead State in Response Tab').first().json.chat_id }}",
+        "text": "=📬 Mail sent\n\nTo: {{ $('Verify Lead State in Response Tab').first().json.lead_email }}\nSubject: {{ $('Verify Lead State in Response Tab').first().json.subject }}\nStage marked sent in Automation response.",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "id": "7b470106-0ad5-459a-a9d6-088fb8ac97a9",
+      "name": "Notify Telegram Mail Sent",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        2080,
+        128
+      ],
+      "webhookId": "9a70a7ed-6e9f-4e15-b47c-281485eacbf0",
+      "credentials": {
+        "telegramApi": {
+          "id": "31xBNnmnrkBd7bMo",
+          "name": "Frontend credential - Telegram"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "1WsEuU0eVAGqCJ6XyVfMQ7Qzte6XnOWo8vC-KK27hIYM",
+          "mode": "list",
+          "cachedResultName": "Copy of GrapeLabs Reachouts- NEW"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Automation response",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "row_number": "={{ $('Verify Lead State in Response Tab').first().json.row_number }}",
+            "Stage": "send_failed",
+            "Timestamp": "={{ $now.setZone('Asia/Kolkata').toFormat('yyyy-MM-dd HH:mm:ss') }}"
+          },
+          "matchingColumns": [
+            "row_number"
+          ],
+          "schema": [
+            {
+              "id": "Email",
+              "displayName": "Email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Brand",
+              "displayName": "Brand",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Industry",
+              "displayName": "Industry",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Opens",
+              "displayName": "Opens",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Clicks",
+              "displayName": "Clicks",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Trigger Reason",
+              "displayName": "Trigger Reason",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Stage",
+              "displayName": "Stage",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Subject",
+              "displayName": "Subject",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Body",
+              "displayName": "Body",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Diagram URL",
+              "displayName": "Diagram URL",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Timestamp",
+              "displayName": "Timestamp",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "row_number",
+              "displayName": "row_number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "readOnly": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "26e6c439-bb38-4ea7-b374-af715ff90c62",
+      "name": "Mark Send Failed1",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        1872,
+        288
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "BvcGKZ7z5qPtBa88",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Verify Lead State in Response Tab').first().json.chat_id }}",
+        "text": "=🚨 Gmail failed for {{ $('Verify Lead State in Response Tab').first().json.lead_email }}. Stage set to send_failed. Tap Approve on the preview again to retry.",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "id": "4c10277f-5ac1-4c38-80d5-e4b51b8dd5f4",
+      "name": "Notify Send Failed1",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        2080,
+        288
+      ],
+      "webhookId": "b61029cc-d6d9-4a0a-b855-4bff51e0c7d9",
+      "credentials": {
+        "telegramApi": {
+          "id": "31xBNnmnrkBd7bMo",
+          "name": "Frontend credential - Telegram"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "1WsEuU0eVAGqCJ6XyVfMQ7Qzte6XnOWo8vC-KK27hIYM",
+          "mode": "list",
+          "cachedResultName": "Copy of GrapeLabs Reachouts- NEW"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Automation response",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "row_number": "={{ $('Verify Lead State in Response Tab').first().json.row_number }}",
+            "Stage": "rejected",
+            "Timestamp": "={{ $now.setZone('Asia/Kolkata').toFormat('yyyy-MM-dd HH:mm:ss') }}"
+          },
+          "matchingColumns": [
+            "row_number"
+          ],
+          "schema": [
+            {
+              "id": "Email",
+              "displayName": "Email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Brand",
+              "displayName": "Brand",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Industry",
+              "displayName": "Industry",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Opens",
+              "displayName": "Opens",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Clicks",
+              "displayName": "Clicks",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Trigger Reason",
+              "displayName": "Trigger Reason",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Stage",
+              "displayName": "Stage",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Subject",
+              "displayName": "Subject",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Body",
+              "displayName": "Body",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Diagram URL",
+              "displayName": "Diagram URL",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Timestamp",
+              "displayName": "Timestamp",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "row_number",
+              "displayName": "row_number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "readOnly": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "af93cd98-2978-4164-bfa2-8ca92448792d",
+      "name": "Mark Rejected in Response Sheet",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        1424,
+        448
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "BvcGKZ7z5qPtBa88",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Verify Lead State in Response Tab').first().json.chat_id }}",
+        "text": "=❌ Lead rejected\n{{ $('Verify Lead State in Response Tab').first().json.lead_email }} marked rejected in Automation response. No mail sent.",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "id": "ec82895b-f00d-427f-8609-b396944ced69",
+      "name": "Notify Telegram Rejected",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1648,
+        448
+      ],
+      "webhookId": "7339a730-899a-47a2-9695-2b258715d0a7",
+      "credentials": {
+        "telegramApi": {
+          "id": "31xBNnmnrkBd7bMo",
+          "name": "Frontend credential - Telegram"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1WsEuU0eVAGqCJ6XyVfMQ7Qzte6XnOWo8vC-KK27hIYM",
+          "mode": "list",
+          "cachedResultName": "Copy of GrapeLabs Reachouts- NEW"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Automation response",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Email": "={{ $('Deduplicate & Qualify Leads1').item.json.Email }}",
+            "Brand": "={{ $('Deduplicate & Qualify Leads1').item.json.Brand }}",
+            "Industry": "={{ $('Deduplicate & Qualify Leads1').item.json.Industry }}",
+            "Opens": "={{ $('Deduplicate & Qualify Leads1').item.json.opens }}",
+            "Clicks": "={{ $('Deduplicate & Qualify Leads1').item.json.clicks }}",
+            "Trigger Reason": "={{ $('Deduplicate & Qualify Leads1').item.json.trigger_reason }}",
+            "Stage": "pending_approval",
+            "Subject": "={{ $('Build Diagram & Copy').item.json.email_subject }}",
+            "Body": "={{ $('Build Diagram & Copy').item.json.email_body }}",
+            "Diagram URL": "={{ 'https://lh3.googleusercontent.com/d/' + $('Upload Diagram to Drive1').item.json.id }}",
+            "Timestamp": "={{ $now.setZone('Asia/Kolkata').toFormat('yyyy-MM-dd HH:mm:ss') }}",
+            "Draft JSON": "={{ $('Build Diagram & Copy').item.json.raw_json }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Email",
+              "displayName": "Email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Brand",
+              "displayName": "Brand",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Industry",
+              "displayName": "Industry",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Opens",
+              "displayName": "Opens",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Clicks",
+              "displayName": "Clicks",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Trigger Reason",
+              "displayName": "Trigger Reason",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Stage",
+              "displayName": "Stage",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Subject",
+              "displayName": "Subject",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Body",
+              "displayName": "Body",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Diagram URL",
+              "displayName": "Diagram URL",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Timestamp",
+              "displayName": "Timestamp",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Draft JSON",
+              "displayName": "Draft JSON",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "b850b68f-aa24-42d7-b4ac-f04fb29b2023",
+      "name": "Push to Automation response1",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        2432,
+        -368
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "BvcGKZ7z5qPtBa88",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "sendPhoto",
+        "chatId": "={{ $('Fetch Config').item.json.telegram.chatId }}",
+        "file": "={{ 'https://lh3.googleusercontent.com/d/' + $('Upload Diagram to Drive1').item.json.id }}",
+        "replyMarkup": "inlineKeyboard",
+        "inlineKeyboard": {
+          "rows": [
+            {
+              "row": {
+                "buttons": [
+                  {
+                    "text": "✅ Approve & Send",
+                    "additionalFields": {
+                      "callback_data": "=a_{{ $('Deduplicate & Qualify Leads1').item.json.Email }}"
+                    }
+                  },
+                  {
+                    "text": "❌ Reject",
+                    "additionalFields": {
+                      "callback_data": "=r_{{ $('Deduplicate & Qualify Leads1').item.json.Email }}"
+                    }
+                  },
+                  {
+                    "text": "✏️ Edit",
+                    "additionalFields": {
+                      "callback_data": "=e_{{ $('Deduplicate & Qualify Leads1').item.json.Email }}"
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "additionalFields": {
+          "caption": "=🎯 AI Ops Proposal Preview\n\nBrand: {{ $('Build Diagram & Copy').item.json.brand }}\nContact: {{ $('Build Diagram & Copy').item.json.first_name }}\nEmail: {{ $('Deduplicate & Qualify Leads1').item.json.Email }}\nSubject: {{ $('Build Diagram & Copy').item.json.email_subject }}\n\nHook:\n{{ ($('Build Diagram & Copy').item.json.achievement_hook + ' ' + $('Build Diagram & Copy').item.json.hook_closer).slice(0, 600) }}"
+        }
+      },
+      "id": "c8ef6834-c788-421e-87dc-f77bc586ab0a",
+      "name": "Send Preview to Telegram1",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        2656,
+        -368
+      ],
+      "webhookId": "3aa9abea-cc03-4fea-8a62-2a081b647d43",
+      "credentials": {
+        "telegramApi": {
+          "id": "31xBNnmnrkBd7bMo",
+          "name": "Frontend credential - Telegram"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "2b784e39-d56b-48d6-9809-02c9cc81c16e",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -544,
+        -368
+      ],
+      "id": "52ae8737-ebde-4909-86f6-8e162cbc2959",
+      "name": "Webhook",
+      "webhookId": "2b784e39-d56b-48d6-9809-02c9cc81c16e"
+    },
+    {
+      "parameters": {
+        "updates": [
+          "callback_query",
+          "message"
+        ],
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        32,
+        208
+      ],
+      "id": "3fa45d70-c075-4c7c-bb32-9e58432417e3",
+      "name": "Telegram Trigger",
+      "webhookId": "17c6c9e6-2553-488c-afc8-c9a49047e150",
+      "credentials": {
+        "telegramApi": {
+          "id": "31xBNnmnrkBd7bMo",
+          "name": "Frontend credential - Telegram"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "https://follow-up-agent-sand.vercel.app/api/config",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1104,
+        -368
+      ],
+      "id": "6a74c0f8-107d-41d2-9722-67e6fe226acd",
+      "name": "Fetch Config"
+    },
+    {
+      "parameters": {
+        "images": {
+          "values": [
+            {}
+          ]
+        },
+        "modelId": {
+          "__rl": true,
+          "value": "={{ $json.openai.model }}",
+          "mode": "id"
+        },
+        "responses": {
+          "values": [
+            {
+              "content": "={{ $('Fetch Config').item.json.openai.systemPrompt\n  .replace(/\\{\\{\\s*\\$json\\.Brand\\s*\\}\\}/g, $('Deduplicate & Qualify Leads1').item.json.Brand)\n  .replace(/\\{\\{\\s*\\$json\\.Industry \\|\\| 'D2C'\\s*\\}\\}/g, $('Deduplicate & Qualify Leads1').item.json.Industry || 'D2C')\n}}"
+            }
+          ]
+        },
+        "builtInTools": {},
+        "options": {
+          "textFormat": {
+            "textOptions": {
+              "type": "json_object"
+            }
+          }
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2.3,
+      "position": [
+        1296,
+        -368
+      ],
+      "id": "2c14e6e4-00a9-4228-bcf7-046482d96e11",
+      "name": "Message a model",
+      "credentials": {
+        "openAiApi": {
+          "id": "7tiQk2BNDFiBNTHE",
+          "name": "Frontend credential - OpenAI"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ $json.body?.source || $json.source || '' }}",
+              "rightValue": "manual_followup",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            },
+            {
+              "id": "c2",
+              "leftValue": "={{ $json.body?.action || $json.action || '' }}",
+              "rightValue": "send_email",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "or"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -16,
+        -464
+      ],
+      "id": "cbf1cd7b-1e2a-4ba7-8411-5c19fd37d9b6",
+      "name": "Is Custom Mail?"
+    }
+  ],
+  "connections": {
+    "When clicking ‘Execute workflow’": {
+      "main": [
+        [
+          {
+            "node": "Is Custom Mail?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Only Callback Queries": {
+      "main": [
+        [
+          {
+            "node": "Answer Button Tap1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark Awaiting Edit": {
+      "main": [
+        [
+          {
+            "node": "Ask For Edit Instructions",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Message a model (Revise)": {
+      "main": [
+        [
+          {
+            "node": "Build Diagram & Copy (Revise)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Diagram & Copy (Revise)": {
+      "main": [
+        [
+          {
+            "node": "Render Diagram PNG (Revise)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Render Diagram PNG (Revise)": {
+      "main": [
+        [
+          {
+            "node": "Upload Diagram to Drive (Revise)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upload Diagram to Drive (Revise)": {
+      "main": [
+        [
+          {
+            "node": "Make Diagram Public (Revise)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Make Diagram Public (Revise)": {
+      "main": [
+        [
+          {
+            "node": "Save Revised Draft",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Revised Draft": {
+      "main": [
+        [
+          {
+            "node": "Send Revised Preview to Telegram",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Leads From Tracking": {
+      "main": [
+        [
+          {
+            "node": "Fetch Existing Responses",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Existing Responses": {
+      "main": [
+        [
+          {
+            "node": "Fetch Master Leads1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Master Leads1": {
+      "main": [
+        [
+          {
+            "node": "Deduplicate & Qualify Leads1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Deduplicate & Qualify Leads1": {
+      "main": [
+        [
+          {
+            "node": "Fetch Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Diagram & Copy": {
+      "main": [
+        [
+          {
+            "node": "Render Diagram PNG",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Render Diagram PNG": {
+      "main": [
+        [
+          {
+            "node": "Upload Diagram to Drive1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upload Diagram to Drive1": {
+      "main": [
+        [
+          {
+            "node": "Make Diagram Public1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Make Diagram Public1": {
+      "main": [
+        [
+          {
+            "node": "Push to Automation response1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Callback Payload": {
+      "main": [
+        [
+          {
+            "node": "Read Automation response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Automation response": {
+      "main": [
+        [
+          {
+            "node": "Verify Lead State in Response Tab",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verify Lead State in Response Tab": {
+      "main": [
+        [
+          {
+            "node": "Route Decision",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route Decision": {
+      "main": [
+        [
+          {
+            "node": "Notify Not Found1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Notify Already Sent",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Mark Sending1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Mark Rejected in Response Sheet",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Mark Awaiting Edit",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Message a model (Revise)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark Sending1": {
+      "main": [
+        [
+          {
+            "node": "Send Gmail to Lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Gmail to Lead": {
+      "main": [
+        [
+          {
+            "node": "Mark Sent in Response Sheet",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Mark Send Failed1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark Sent in Response Sheet": {
+      "main": [
+        [
+          {
+            "node": "Notify Telegram Mail Sent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark Send Failed1": {
+      "main": [
+        [
+          {
+            "node": "Notify Send Failed1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark Rejected in Response Sheet": {
+      "main": [
+        [
+          {
+            "node": "Notify Telegram Rejected",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Push to Automation response1": {
+      "main": [
+        [
+          {
+            "node": "Send Preview to Telegram1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Is Custom Mail?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Telegram Trigger": {
+      "main": [
+        [
+          {
+            "node": "Parse Callback Payload",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Only Callback Queries",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Config": {
+      "main": [
+        [
+          {
+            "node": "Message a model",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Message a model": {
+      "main": [
+        [
+          {
+            "node": "Build Diagram & Copy",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Custom Mail?": {
+      "main": [
+        [
+          {
+            "node": "Deduplicate & Qualify Leads1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Fetch Leads From Tracking",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "instanceId": "72bcdedbc9c9f7656fd896de3a970ef3ebf50bcf550abba5634ded7e0f4227cd"
+  }
+}

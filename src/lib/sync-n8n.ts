@@ -1,6 +1,6 @@
 import { getN8nConfig } from "./n8n-client";
 import { UPDATED_DEDUPLICATE_CODE } from "./n8n-dedup-code.js";
-import { UPDATED_BUILD_DIAGRAM_CODE } from "./build-diagram-code.js";
+import { UPDATED_BUILD_DIAGRAM_CODE, UPDATED_BUILD_DIAGRAM_REVISE_CODE } from "./build-diagram-code.js";
 import { UPDATED_VERIFY_LEAD_CODE } from "./verify-lead-code.js";
 
 export async function syncN8nWorkflowMasterLeadsNode(workflowId = "aCjx6rCJa5glRnBS") {
@@ -59,31 +59,31 @@ export async function syncN8nWorkflowMasterLeadsNode(workflowId = "aCjx6rCJa5glR
         updatedNode = true;
         nodeFoundName = node.name;
       }
-      // Build Diagram & Copy
-      if (name.includes("build diagram") || (name.includes("diagram") && name.includes("copy"))) {
+      // Build Diagram & Copy (Revise)
+      else if (name.includes("revise") && (name.includes("build diagram") || name.includes("diagram") || name.includes("copy"))) {
+        if (!node.parameters) node.parameters = {};
+        node.parameters.jsCode = UPDATED_BUILD_DIAGRAM_REVISE_CODE;
+        updatedNode = true;
+      }
+      // Build Diagram & Copy (Primary)
+      else if (name.includes("build diagram") || (name.includes("diagram") && name.includes("copy"))) {
         if (!node.parameters) node.parameters = {};
         node.parameters.jsCode = UPDATED_BUILD_DIAGRAM_CODE;
         updatedNode = true;
       }
       // Verify Lead State in Response Tab
-      if (name.includes("verify lead state") || name.includes("response tab")) {
+      else if (name.includes("verify lead state") || name.includes("response tab")) {
         if (!node.parameters) node.parameters = {};
         node.parameters.jsCode = UPDATED_VERIFY_LEAD_CODE;
         updatedNode = true;
       }
     }
 
-    // 2. Always ensure Webhook routes directly to Fetch Leads From Tracking so leads cross all nodes (Fetch Config, OpenAI, Build Diagram, Google Drive, Automation Response, Telegram)
+    // 2. Preserve connections or ensure Webhook routes to Is Custom Mail? if unset
     if (!wf.connections) wf.connections = {};
-    wf.connections["Webhook"] = {
-      main: [[{ node: "Fetch Leads From Tracking", type: "main", index: 0 }]],
-    };
-    if (wf.connections["Is Custom Mail?"]) {
-      wf.connections["Is Custom Mail?"] = {
-        main: [
-          [{ node: "Fetch Leads From Tracking", type: "main", index: 0 }],
-          [{ node: "Fetch Leads From Tracking", type: "main", index: 0 }],
-        ],
+    if (!wf.connections["Webhook"] || wf.connections["Webhook"].main?.length === 0) {
+      wf.connections["Webhook"] = {
+        main: [[{ node: "Is Custom Mail?", type: "main", index: 0 }]],
       };
     }
 
@@ -110,12 +110,15 @@ export async function syncN8nWorkflowMasterLeadsNode(workflowId = "aCjx6rCJa5glR
       nodes: cleanNodes,
       connections: wf.connections || {},
     };
+    const validSettings: Record<string, any> = {};
     if (wf.settings && typeof wf.settings === "object") {
-      updatePayload.settings = wf.settings;
+      if (wf.settings.executionOrder) validSettings.executionOrder = wf.settings.executionOrder;
+      if (wf.settings.timezone) validSettings.timezone = wf.settings.timezone;
+      if (wf.settings.saveManualExecutions !== undefined) validSettings.saveManualExecutions = wf.settings.saveManualExecutions;
+      if (wf.settings.saveDataErrorExecution !== undefined) validSettings.saveDataErrorExecution = wf.settings.saveDataErrorExecution;
+      if (wf.settings.saveDataSuccessExecution !== undefined) validSettings.saveDataSuccessExecution = wf.settings.saveDataSuccessExecution;
     }
-    if (wf.staticData) {
-      updatePayload.staticData = wf.staticData;
-    }
+    updatePayload.settings = validSettings;
 
     const updateRes = await fetch(`${n8n.root}/workflows/${targetId}`, {
       method: "PUT",

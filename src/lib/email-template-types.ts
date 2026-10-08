@@ -1,3 +1,19 @@
+import {
+  IndustryTemplateItem,
+  IndustryType,
+  DEFAULT_INDUSTRY_TEMPLATES,
+  INDUSTRY_LIST,
+  matchIndustrySegment,
+} from "./industry-template-presets";
+
+export {
+  type IndustryTemplateItem,
+  type IndustryType,
+  DEFAULT_INDUSTRY_TEMPLATES,
+  INDUSTRY_LIST,
+  matchIndustrySegment,
+};
+
 export interface EmailTemplateConfig {
   subject: string;
   bodyHtml: string;
@@ -8,6 +24,8 @@ export interface EmailTemplateConfig {
   whatsappText?: string;
   senderName: string;
   senderEmail: string;
+  selectedIndustry?: string;
+  industryTemplates?: Record<string, { subject: string; bodyHtml: string }>;
 }
 
 export const DEFAULT_EMAIL_BODY_HTML = `<div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 14px; line-height: 1.55; color: #111827;">
@@ -35,12 +53,20 @@ export const DEFAULT_EMAIL_SIGNATURE_HTML = `<div style="margin-top: 22px; line-
   <div style="border-left: 2px solid #7c3aed; padding-left: 10px; margin-bottom: 18px;">
     <div style="color: #6d28d9; font-weight: 600; font-size: 13px;">Co-Founder, GrapeLabs AI</div>
     <div style="color: #6b7280; font-size: 12px; margin-top: 2px;">Green Park, New Delhi · 110016</div>
-    <div style="color: #6b7280; font-size: 12px; margin-top: 2px;">Phone: +91 83888 92390</div>
+    <div style="color: #6b7280; font-size: 12px; margin-top: 2px;">Phone: +91 83888 92300</div>
   </div>
   <div style="font-size: 12px; color: #6b7280; font-style: italic;">
     P.S. The irony isn't lost on us. We used our own infrastructure to find you, track your open, and send you this.
   </div>
 </div>`;
+
+const defaultIndustryTemplatesMap: Record<string, { subject: string; bodyHtml: string }> = {};
+for (const [key, val] of Object.entries(DEFAULT_INDUSTRY_TEMPLATES)) {
+  defaultIndustryTemplatesMap[key] = {
+    subject: val.subject,
+    bodyHtml: val.bodyHtml,
+  };
+}
 
 export const DEFAULT_EMAIL_TEMPLATE: EmailTemplateConfig = {
   subject: "You were curious. So we got to work. Here's {{brand}}'s entire AI ops layer.",
@@ -48,8 +74,10 @@ export const DEFAULT_EMAIL_TEMPLATE: EmailTemplateConfig = {
   signatureHtml: DEFAULT_EMAIL_SIGNATURE_HTML,
   callUrl: "https://calendly.com/team-grapelabs/30min",
   callButtonText: "Book a Free Call",
-  whatsappUrl: "https://wa.me/918388892390?text=Hi%20Kashika,%20saw%20your%20email%20about%20our%20AI%20ops%20layer",
+  whatsappUrl: "https://wa.me/918388892300?text=Hi%20Kashika,%20saw%20your%20email%20about%20our%20AI%20ops%20layer",
   whatsappText: "Text me on WhatsApp",
   senderName: "Kashika Gupta",
   senderEmail: "team@grapelabs.in",
+  selectedIndustry: "D2C-Apparel",
+  industryTemplates: defaultIndustryTemplatesMap,
 };

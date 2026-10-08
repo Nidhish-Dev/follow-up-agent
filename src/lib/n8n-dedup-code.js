@@ -1,9 +1,40 @@
 export const UPDATED_DEDUPLICATE_CODE = `// 0. Dynamic Qualification Rules from Frontend / Webhook (with safe defaults)
+// ===== Custom mail path (from dashboard) =====
+const _in = $input.first()?.json || {};
+const _b = _in.body || _in;
+if (_b.source === 'manual_followup' || _b.action === 'send_email') {
+  const lead = _b.lead || {};
+  const emailData = _b.email || {};
+  const email = String(emailData.to || lead.email || lead.Email || _b.leadEmail || '').trim();
+  const name = String(lead.name || lead.full_name || lead.firstName || _b.leadName || 'there').trim();
+  const brand = String(lead.brand || lead.Brand || _b.brand || '').trim();
+  if (!email || !brand) {
+    throw new Error('Custom mail needs a lead email and brand');
+  }
+  return [{
+    json: {
+      Email: email,
+      Brand: brand,
+      Industry: lead.industry || lead.Industry || 'D2C',
+      Subject: emailData.subject || '',
+      full_name: name,
+      first_name: name,
+      First_Name: name,
+      Stage: 0,
+      opens: 0,
+      clicks: 0,
+      trigger_reason: 'Manual follow-up from Dashboard',
+      lastTimestamp: '',
+      custom_html: emailData.html || ''
+    }
+  }];
+}
+
 let rules = {
-  minOpens: 2,
+  minOpens: 3,
   includeClicked: true,
   minClicks: 1,
-  matchMode: 'or' // 'or' | 'and'
+  matchMode: 'or' // 'or' | 'and' (qualifies if clicked >= 1 time OR opened >= 3 times)
 };
 
 let triggerBody = null;
@@ -43,7 +74,6 @@ try {
   }
 }
 
-const masterLeadsList = [];
 const masterNameMap = {};
 const masterBrandMap = {};
 const masterLeadMap = {};
@@ -144,19 +174,15 @@ for (const m of masterRows) {
     Website: websiteVal,
     website: websiteVal,
     Stage: 1,
-    opens: 1,
-    clicks: 0,
-    trigger_reason: 'Picked from Master Leads',
   };
 
   masterNameMap[emailVal] = fullNameVal;
   masterBrandMap[emailVal] = brandVal;
   masterLeadMap[emailVal] = normalizedLead;
-  masterLeadsList.push(normalizedLead);
 }
 
-// 2. Fetch Existing Responses to prevent duplicates in automated batches
-const existingEmails = new Set();
+// 2. In-flight pending approvals from Automation response (only prevent spamming unapproved drafts)
+const inFlightEmails = new Set();
 try {
   let existingItems = [];
   try {
@@ -167,11 +193,15 @@ try {
     } catch (e2) {}
   }
   for (const item of existingItems) {
-    for (const v of Object.values(item.json || {})) {
-      const s = String(v || '').trim();
-      if (s.includes('@') && s.includes('.')) {
-        existingEmails.add(s.toLowerCase());
-        break;
+    const row = item.json || {};
+    const stage = String(row.Stage || row.stage || '').toLowerCase().trim();
+    if (['pending_approval', 'awaiting_edit', 'sending'].includes(stage)) {
+      for (const v of Object.values(row)) {
+        const s = String(v || '').trim();
+        if (s.includes('@') && s.includes('.')) {
+          inFlightEmails.add(s.toLowerCase());
+          break;
+        }
       }
     }
   }
@@ -185,7 +215,7 @@ function extractRealFirstName(rawName, email) {
     const alphaOnly = userPart.replace(/\d+/g, '').split(/[._-]+/).filter(Boolean);
     cleanName = alphaOnly.length > 0 ? alphaOnly[0] : 'Friend';
   } else {
-    cleanName = cleanName.split(' ')[0].replace(/\d+/g, '');
+    cleanName = cleanName.split(/[ ._-]/)[0].replace(/\d+/g, '');
   }
   if (!cleanName) cleanName = 'Friend';
   return cleanName.charAt(0).toUpperCase() + cleanName.slice(1).toLowerCase();
@@ -244,7 +274,7 @@ if (webhookLead) {
   }];
 }
 
-// 4. PRIORITY B: Tracking events from Google Sheets Tracking tab
+// 5. PRIORITY B: Tracking events from Google Sheets Tracking tab
 let trackingItems = [];
 try {
   trackingItems = $('Fetch Leads From Tracking').all();
@@ -265,35 +295,60 @@ for (const item of trackingItems) {
   if (!rawEmail) continue;
 
   const email = rawEmail.toLowerCase();
-  if (existingEmails.has(email)) continue;
+  if (inFlightEmails.has(email)) continue;
 
   if (!aggregatedLeads[email]) {
-    const resolvedName = masterNameMap[email] || row.Name || row['Full Name'] || 'there';
-    const brandName = String(row.Brand || row.brand || masterBrandMap[email] || '').trim();
+    const masterLead = masterLeadMap[email] || {};
+    const rawResolvedName = masterNameMap[email] || row.Name || row['Full Name'] || '';
+    const realFirstName = extractRealFirstName(rawResolvedName, rawEmail);
+    const fullName = rawResolvedName && rawResolvedName.toLowerCase() !== 'there' ? rawResolvedName : realFirstName;
+
+    let brandName = String(row.Brand || row.brand || masterBrandMap[email] || masterLead.Brand || '').trim();
+    if (!brandName) {
+      const domain = (rawEmail.split('@')[1] || '').split('.')[0];
+      if (domain && !['gmail', 'yahoo', 'hotmail', 'outlook', 'icloud', 'protonmail'].includes(domain.toLowerCase())) {
+        brandName = domain.charAt(0).toUpperCase() + domain.slice(1);
+      } else {
+        brandName = 'Your Brand';
+      }
+    }
+
+    const industryVal = row.Industry || row.industry || masterLead.Industry || 'D2C';
+    const defaultSubject = \`You were curious. So we got to work. Here's \${brandName}'s entire AI ops layer.\`;
+
     aggregatedLeads[email] = {
+      ...masterLead,
+      ...row,
       Email: rawEmail,
       email: rawEmail,
       Brand: brandName,
       brand: brandName,
-      Industry: row.Industry || row.industry || 'D2C',
-      industry: row.Industry || row.industry || 'D2C',
-      Subject: row.Subject || \`You were curious. So we got to work. Here's \${brandName}'s entire AI ops layer.\`,
-      subject: row.Subject || \`You were curious. So we got to work. Here's \${brandName}'s entire AI ops layer.\`,
-      full_name: resolvedName,
-      first_name: resolvedName.split(' ')[0] || resolvedName,
-      First_Name: resolvedName.split(' ')[0] || resolvedName,
-      Name: resolvedName,
-      name: resolvedName,
-      Stage: row.Stage || 1,
+      Industry: industryVal,
+      industry: industryVal,
+      Subject: row.Subject || defaultSubject,
+      subject: row.Subject || defaultSubject,
+      full_name: fullName,
+      first_name: realFirstName,
+      First_Name: realFirstName,
+      Name: fullName,
+      name: fullName,
+      Stage: 1,
       opens: 0,
       clicks: 0,
       lastTimestamp: row.Timestamp || ''
     };
   }
 
-  const event = String(row.Event || '').trim().toUpperCase();
-  if (event === 'OPENED') aggregatedLeads[email].opens += 1;
-  else if (event === 'CLICKED') aggregatedLeads[email].clicks += 1;
+  const event = String(row.Event || row.event || '').trim().toUpperCase();
+  if (event.includes('CLICK')) {
+    aggregatedLeads[email].clicks += 1;
+  } else if (event.includes('OPEN')) {
+    aggregatedLeads[email].opens += 1;
+  }
+
+  if (row.Timestamp) {
+    aggregatedLeads[email].lastTimestamp = row.Timestamp;
+  }
 }
 
 const qualified = [];
@@ -311,6 +366,7 @@ for (const email in aggregatedLeads) {
     isQualified = meetsOpens && meetsClicks;
     if (isQualified) triggerReason = \`Clicked CTA (\${lead.clicks} clicks) & Opened \${lead.opens} times\`;
   } else {
+    // 'or' mode (qualifies if clicked >= minClicks OR opened >= minOpens)
     if (meetsClicks) {
       triggerReason = \`Clicked CTA (\${lead.clicks} clicks, \${lead.opens} opens)\`;
       isQualified = true;
@@ -326,22 +382,23 @@ for (const email in aggregatedLeads) {
   }
 }
 
-// 5. PRIORITY C: Pick directly from Master Leads if tracking leads don't qualify or run from Dashboard
-if (qualified.length === 0 && masterLeadsList.length > 0) {
-  const maxToPick = Number(triggerBody?.limit || 5);
-  for (const m of masterLeadsList) {
-    if (existingEmails.has(m.email)) continue;
-    qualified.push({ json: m });
-    if (qualified.length >= maxToPick) break;
+// CRITICAL: Prioritize ALL Clicked leads first!
+// Then sort by opens descending, then recent timestamp descending
+qualified.sort((a, b) => {
+  const aClicks = Number(a.json.clicks || 0);
+  const bClicks = Number(b.json.clicks || 0);
+  if (bClicks !== aClicks) {
+    return bClicks - aClicks; // Clicks first!
   }
-
-  // Fallback: if all master leads were in existing responses, take top available to allow test runs
-  if (qualified.length === 0 && masterLeadsList.length > 0) {
-    for (let i = 0; i < Math.min(maxToPick, masterLeadsList.length); i++) {
-      qualified.push({ json: masterLeadsList[i] });
-    }
+  const aOpens = Number(a.json.opens || 0);
+  const bOpens = Number(b.json.opens || 0);
+  if (bOpens !== aOpens) {
+    return bOpens - aOpens; // Higher opens next!
   }
-}
+  return String(b.json.lastTimestamp || '').localeCompare(String(a.json.lastTimestamp || ''));
+});
 
-return qualified.slice(0, 15);
+// Return all qualified leads without dropping clicked ones (default limit 100)
+const maxLimit = Number(triggerBody?.limit || 100);
+return qualified.slice(0, maxLimit);
 `;

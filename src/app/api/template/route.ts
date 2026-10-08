@@ -56,6 +56,8 @@ export async function POST(req: NextRequest) {
       whatsappText: typeof body.whatsappText === "string" ? body.whatsappText : DEFAULT_EMAIL_TEMPLATE.whatsappText,
       senderName: typeof body.senderName === "string" ? body.senderName : DEFAULT_EMAIL_TEMPLATE.senderName,
       senderEmail: typeof body.senderEmail === "string" ? body.senderEmail : DEFAULT_EMAIL_TEMPLATE.senderEmail,
+      selectedIndustry: typeof body.selectedIndustry === "string" ? body.selectedIndustry : DEFAULT_EMAIL_TEMPLATE.selectedIndustry,
+      industryTemplates: body.industryTemplates && typeof body.industryTemplates === "object" ? body.industryTemplates : DEFAULT_EMAIL_TEMPLATE.industryTemplates,
     };
 
     await docRef.set({ ...template, updatedAt: new Date().toISOString() }, { merge: true });

@@ -5,23 +5,23 @@ import {
   Mail,
   Save,
   RotateCcw,
-  Code2,
   Monitor,
   Smartphone,
-  Sparkles,
   Copy,
   Check,
-  ExternalLink,
   LoaderCircle,
-  Info,
-  CheckCircle,
-  FileCode,
+  Building,
+  Layers,
+  Sparkles,
 } from "lucide-react";
 import {
   EmailTemplateConfig,
   DEFAULT_EMAIL_TEMPLATE,
   DEFAULT_EMAIL_BODY_HTML,
   DEFAULT_EMAIL_SIGNATURE_HTML,
+  DEFAULT_INDUSTRY_TEMPLATES,
+  INDUSTRY_LIST,
+  IndustryType,
 } from "@/lib/email-template-types";
 
 interface SampleLead {
@@ -34,39 +34,6 @@ interface SampleLead {
   closer: string;
   verticalFocus: string;
 }
-
-const SAMPLE_LEADS: SampleLead[] = [
-  {
-    id: "sample-1",
-    name: "Alex",
-    brand: "AllStar Athletics",
-    industry: "D2C Technical Apparel",
-    email: "alex@allstarathletics.com",
-    hook: "AllStar Athletics has built a cult-like community around its technical running gear that customers keep reordering every drop.",
-    closer: "That's the hard part, and it's already done.",
-    verticalFocus: "Direct-to-consumer acquisition, community-driven repeat purchase, and creator-led trust cycles.",
-  },
-  {
-    id: "sample-2",
-    name: "Sophia",
-    brand: "Lumina Skincare",
-    industry: "Clean Beauty & Barrier Care",
-    email: "sophia@luminaskin.co",
-    hook: "Lumina has achieved viral retention across its microbiome barrier serums with over 42% repeat purchase velocity.",
-    closer: "Building true organic product love is the rare feat, and you've nailed it.",
-    verticalFocus: "Subscription auto-replenishment, routine personalization quiz flows, and post-purchase onboarding.",
-  },
-  {
-    id: "sample-3",
-    name: "Marcus",
-    brand: "Peak Coffee Roasters",
-    industry: "Artisan Coffee Subscription",
-    email: "marcus@peakcoffee.com",
-    hook: "Peak Coffee has carved out a fiercely loyal following among specialty single-origin subscription roasters.",
-    closer: "Product excellence is proven, now the ops engine accelerates it.",
-    verticalFocus: "Wholesale re-orders, tier loyalty perks, and roast-date dispatch tracking workflows.",
-  },
-];
 
 const AVAILABLE_VARIABLES = [
   { tag: "{{first_name}}", label: "Recipient First Name", desc: "e.g. Alex" },
@@ -87,15 +54,28 @@ export function EmailTemplateView({
   setNotice: (n: any) => void;
 }) {
   const [template, setTemplate] = useState<EmailTemplateConfig>(DEFAULT_EMAIL_TEMPLATE);
+  const [selectedIndustry, setSelectedIndustry] = useState<IndustryType>("D2C-Apparel");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [previewDevice, setPreviewDevice] = useState<"desktop" | "mobile">("desktop");
-  const [activeLead, setActiveLead] = useState<SampleLead>(SAMPLE_LEADS[0]);
   const [copied, setCopied] = useState(false);
   const [activeTab, setActiveTab] = useState<"body" | "signature">("body");
 
   const bodyTextareaRef = useRef<HTMLTextAreaElement>(null);
   const sigTextareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Initialize sample lead based on selected industry preset
+  const activePreset = DEFAULT_INDUSTRY_TEMPLATES[selectedIndustry] || DEFAULT_INDUSTRY_TEMPLATES["D2C-Apparel"];
+  const activeLead: SampleLead = {
+    id: activePreset.id,
+    name: activePreset.sampleName,
+    brand: activePreset.sampleBrand,
+    industry: activePreset.name,
+    email: activePreset.sampleEmail,
+    hook: activePreset.sampleHook,
+    closer: activePreset.sampleCloser,
+    verticalFocus: activePreset.sampleVerticalFocus,
+  };
 
   // Fetch saved template
   useEffect(() => {
@@ -110,7 +90,19 @@ export function EmailTemplateView({
         if (res.ok) {
           const data = await res.json();
           if (data.template) {
-            setTemplate(data.template);
+            // Merge defaults for all 12 industries to guarantee complete dictionary
+            const mergedIndustryTemplates = {
+              ...(DEFAULT_EMAIL_TEMPLATE.industryTemplates || {}),
+              ...(data.template.industryTemplates || {}),
+            };
+            setTemplate({
+              ...DEFAULT_EMAIL_TEMPLATE,
+              ...data.template,
+              industryTemplates: mergedIndustryTemplates,
+            });
+            if (data.template.selectedIndustry && INDUSTRY_LIST.includes(data.template.selectedIndustry as IndustryType)) {
+              setSelectedIndustry(data.template.selectedIndustry as IndustryType);
+            }
           }
         }
       } catch (err) {
@@ -122,18 +114,62 @@ export function EmailTemplateView({
     fetchTemplate();
   }, [fbUser]);
 
+  // Current industry's active subject & body
+  const currentIndustrySubject =
+    template.industryTemplates?.[selectedIndustry]?.subject ??
+    DEFAULT_INDUSTRY_TEMPLATES[selectedIndustry]?.subject ??
+    template.subject;
+
+  const currentIndustryBodyHtml =
+    template.industryTemplates?.[selectedIndustry]?.bodyHtml ??
+    DEFAULT_INDUSTRY_TEMPLATES[selectedIndustry]?.bodyHtml ??
+    template.bodyHtml;
+
+  // Handle updates to the active industry template
+  const handleUpdateCurrentIndustry = (updates: { subject?: string; bodyHtml?: string }) => {
+    setTemplate((prev) => {
+      const existing = prev.industryTemplates || {};
+      const current = existing[selectedIndustry] || {
+        subject: DEFAULT_INDUSTRY_TEMPLATES[selectedIndustry]?.subject || prev.subject,
+        bodyHtml: DEFAULT_INDUSTRY_TEMPLATES[selectedIndustry]?.bodyHtml || prev.bodyHtml,
+      };
+
+      const updatedMap = {
+        ...existing,
+        [selectedIndustry]: {
+          ...current,
+          ...updates,
+        },
+      };
+
+      return {
+        ...prev,
+        // If updating the active industry, also keep top-level subject/body synced for general fallbacks
+        subject: updates.subject !== undefined && selectedIndustry === "D2C-General" ? updates.subject : prev.subject,
+        bodyHtml: updates.bodyHtml !== undefined && selectedIndustry === "D2C-General" ? updates.bodyHtml : prev.bodyHtml,
+        industryTemplates: updatedMap,
+        selectedIndustry,
+      };
+    });
+  };
+
   const saveTemplate = async () => {
     if (!fbUser) return;
     setSaving(true);
     try {
       const token = await fbUser.getIdToken();
+      const payload: EmailTemplateConfig = {
+        ...template,
+        selectedIndustry,
+      };
+
       const res = await fetch("/api/template", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify(template),
+        body: JSON.stringify(payload),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to save template");
@@ -143,7 +179,7 @@ export function EmailTemplateView({
       }
       setNotice({
         type: "success",
-        text: "Email HTML template successfully saved! Outbound emails will use this template.",
+        text: `Email HTML templates for all 12 industries successfully saved! The workflow will automatically pick templates matching each lead's industry.`,
       });
     } catch (err: any) {
       setNotice({
@@ -155,8 +191,19 @@ export function EmailTemplateView({
     }
   };
 
-  const resetToDefault = () => {
-    if (confirm("Reset email template and signature back to default?")) {
+  const resetCurrentIndustry = () => {
+    const preset = DEFAULT_INDUSTRY_TEMPLATES[selectedIndustry];
+    if (!preset) return;
+    if (confirm(`Reset "${selectedIndustry}" email copy and subject back to default?`)) {
+      handleUpdateCurrentIndustry({
+        subject: preset.subject,
+        bodyHtml: preset.bodyHtml,
+      });
+    }
+  };
+
+  const resetAllToDefault = () => {
+    if (confirm("Reset ALL 12 industry email templates, settings, and signature back to defaults?")) {
       setTemplate(DEFAULT_EMAIL_TEMPLATE);
     }
   };
@@ -168,11 +215,11 @@ export function EmailTemplateView({
 
     const start = textarea.selectionStart;
     const end = textarea.selectionEnd;
-    const currentVal = activeTab === "body" ? template.bodyHtml : template.signatureHtml;
+    const currentVal = activeTab === "body" ? currentIndustryBodyHtml : template.signatureHtml;
     const newVal = currentVal.substring(0, start) + tag + currentVal.substring(end);
 
     if (activeTab === "body") {
-      setTemplate((prev) => ({ ...prev, bodyHtml: newVal }));
+      handleUpdateCurrentIndustry({ bodyHtml: newVal });
     } else {
       setTemplate((prev) => ({ ...prev, signatureHtml: newVal }));
     }
@@ -185,6 +232,9 @@ export function EmailTemplateView({
 
   // Interpolate variables for preview
   const interpolate = (html: string, lead: SampleLead) => {
+    const rawWaUrl = template.whatsappUrl || "https://wa.me/918388892300?text=Hi%20Kashika,%20saw%20your%20email";
+    const resolvedWaUrl = rawWaUrl.replace(/\{\{\s*brand\s*\}\}/gi, encodeURIComponent(lead.brand || "your brand"));
+
     return html
       .replace(/\{\{\s*first_name\s*\}\}/gi, lead.name)
       .replace(/\{\{\s*recipientName\s*\}\}/gi, lead.name)
@@ -193,14 +243,14 @@ export function EmailTemplateView({
       .replace(/\{\{\s*hook_closer\s*\}\}/gi, lead.closer)
       .replace(/\{\{\s*vertical_focus\s*\}\}/gi, lead.verticalFocus)
       .replace(/\{\{\s*call_url\s*\}\}/gi, template.callUrl || "https://calendly.com/team-grapelabs/30min")
-      .replace(/\{\{\s*whatsapp_url\s*\}\}/gi, template.whatsappUrl || "https://wa.me/918388892390?text=Hi%20Kashika,%20saw%20your%20email")
+      .replace(/\{\{\s*whatsapp_url\s*\}\}/gi, resolvedWaUrl)
       .replace(/\{\{\s*call_button_text\s*\}\}/gi, template.callButtonText || "Book a Free Call")
       .replace(/\{\{\s*whatsapp_text\s*\}\}/gi, template.whatsappText || "Text me on WhatsApp")
       .replace(/\{\{\s*sender_name\s*\}\}/gi, template.senderName || "Kashika Gupta");
   };
 
-  const previewSubject = interpolate(template.subject, activeLead);
-  const previewBody = interpolate(template.bodyHtml, activeLead);
+  const previewSubject = interpolate(currentIndustrySubject, activeLead);
+  const previewBody = interpolate(currentIndustryBodyHtml, activeLead);
   const previewSignature = interpolate(template.signatureHtml, activeLead);
 
   const copyFullHtml = () => {
@@ -242,10 +292,10 @@ export function EmailTemplateView({
           </div>
           <div>
             <h2 style={{ margin: 0, fontSize: "16.5px", fontWeight: 700, color: "var(--ink)" }}>
-              Outreach Email HTML Designer
+              Industry Segment Email Designer & Router
             </h2>
             <p style={{ margin: "2px 0 0", fontSize: "11.5px", color: "var(--muted)" }}>
-              Customize the email copy, HTML markup, and signature sent to leads upon Telegram approval.
+              Configure customized email copy for all 12 industry segments. The workflow automatically selects the template matching each lead&apos;s industry.
             </p>
           </div>
         </div>
@@ -253,7 +303,7 @@ export function EmailTemplateView({
         <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
           <button
             type="button"
-            onClick={resetToDefault}
+            onClick={resetCurrentIndustry}
             style={{
               background: "#f8fafc",
               border: "1px solid #cbd5e1",
@@ -267,10 +317,10 @@ export function EmailTemplateView({
               gap: "6px",
               cursor: "pointer",
             }}
-            title="Reset HTML to default"
+            title="Reset this industry's copy to preset default"
           >
             <RotateCcw size={13} />
-            Reset to Default
+            Reset Current Segment
           </button>
 
           <button
@@ -303,28 +353,129 @@ export function EmailTemplateView({
             disabled={saving || loading}
           >
             {saving ? <LoaderCircle className="spin" size={14} /> : <Save size={14} />}
-            {saving ? "Saving Template..." : "Save Email HTML"}
+            {saving ? "Saving Templates..." : "Save All Templates"}
           </button>
         </div>
       </div>
 
+      {/* Industry Segment Selector Tabs */}
+      <div
+        style={{
+          marginTop: "16px",
+          background: "#fff",
+          border: "1px solid var(--line)",
+          borderRadius: "8px",
+          padding: "12px 16px",
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "10px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            <Layers size={15} color="#2563eb" />
+            <span style={{ fontSize: "12px", fontWeight: 700, color: "var(--ink)", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+              Select Industry Segment ({INDUSTRY_LIST.length} Segments)
+            </span>
+          </div>
+          <span style={{ fontSize: "11px", color: "var(--muted)" }}>
+            Workflow auto-matches the lead&apos;s Sheet Industry to these templates
+          </span>
+        </div>
+
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))",
+            gap: "8px",
+          }}
+        >
+          {INDUSTRY_LIST.map((ind) => {
+            const isSelected = selectedIndustry === ind;
+            return (
+              <button
+                key={ind}
+                type="button"
+                onClick={() => setSelectedIndustry(ind)}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  padding: "8px 10px",
+                  borderRadius: "6px",
+                  border: isSelected ? "2px solid #2563eb" : "1px solid #e2e8f0",
+                  background: isSelected ? "#eff6ff" : "#f8fafc",
+                  color: isSelected ? "#1d4ed8" : "#334155",
+                  fontWeight: isSelected ? 700 : 500,
+                  fontSize: "12px",
+                  cursor: "pointer",
+                  transition: "all 0.15s ease",
+                  textAlign: "left",
+                }}
+              >
+                <span>{ind}</span>
+                {isSelected && <span style={{ width: "6px", height: "6px", borderRadius: "50%", background: "#2563eb" }} />}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
       {/* 2-Column Editor + Live Preview Grid */}
-      <div className="email-editor-grid">
+      <div className="email-editor-grid" style={{ marginTop: "16px" }}>
         {/* Left Column: Form & Code Editor */}
         <div style={{ display: "flex", flexDirection: "column", gap: "18px" }}>
           
-          {/* 1. Subject Line */}
+          {/* Active Segment Badge */}
+          <div
+            style={{
+              background: "#f0fdf4",
+              border: "1px solid #bbf7d0",
+              borderRadius: "8px",
+              padding: "10px 14px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+              <Building size={16} color="#16a34a" />
+              <div>
+                <span style={{ fontSize: "12px", fontWeight: 700, color: "#166534" }}>
+                  Editing Template for Segment: {selectedIndustry}
+                </span>
+                <span style={{ display: "block", fontSize: "11px", color: "#15803d" }}>
+                  Sample Brand: {activePreset.sampleBrand} · Lead: {activePreset.sampleName}
+                </span>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={resetCurrentIndustry}
+              style={{
+                background: "#fff",
+                border: "1px solid #86efac",
+                color: "#166534",
+                padding: "3px 8px",
+                borderRadius: "5px",
+                fontSize: "11px",
+                fontWeight: 600,
+                cursor: "pointer",
+              }}
+            >
+              Reset {selectedIndustry}
+            </button>
+          </div>
+
+          {/* 1. Subject Line for Current Industry */}
           <div style={{ background: "#fff", border: "1px solid var(--line)", borderRadius: "8px", padding: "18px" }}>
             <label style={{ display: "block", fontSize: "12px", fontWeight: 700, color: "var(--ink)", marginBottom: "4px" }}>
-              Email Subject Line
+              Subject Line ({selectedIndustry})
             </label>
             <span style={{ display: "block", fontSize: "11px", color: "var(--muted)", marginBottom: "8px" }}>
-              Dynamic subject shown in the lead&apos;s inbox. Use <code>{"{{brand}}"}</code> to insert the brand.
+              Dynamic subject line sent to leads in {selectedIndustry}. Use <code>{"{{brand}}"}</code> to insert lead brand.
             </span>
             <input
               type="text"
-              value={template.subject}
-              onChange={(e) => setTemplate((prev) => ({ ...prev, subject: e.target.value }))}
+              value={currentIndustrySubject}
+              onChange={(e) => handleUpdateCurrentIndustry({ subject: e.target.value })}
               style={{
                 width: "100%",
                 padding: "8px 12px",
@@ -338,10 +489,10 @@ export function EmailTemplateView({
             />
           </div>
 
-          {/* 2. Sender & Call Booking Settings */}
+          {/* 2. Sender & Global Call Booking Settings */}
           <div style={{ background: "#fff", border: "1px solid var(--line)", borderRadius: "8px", padding: "18px" }}>
             <span className="eyebrow" style={{ display: "block", marginBottom: "8px" }}>
-              SENDER & BOOKING CALL DESTINATION
+              GLOBAL SENDER & BOOKING DESTINATIONS
             </span>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", marginBottom: "12px" }}>
               <div>
@@ -438,7 +589,7 @@ export function EmailTemplateView({
                   type="text"
                   value={template.whatsappUrl || ""}
                   onChange={(e) => setTemplate((p) => ({ ...p, whatsappUrl: e.target.value }))}
-                  placeholder="https://wa.me/918388892390?text=..."
+                  placeholder="https://wa.me/918388892300?text=..."
                   style={{
                     width: "100%",
                     padding: "7px 10px",
@@ -493,7 +644,7 @@ export function EmailTemplateView({
                     cursor: "pointer",
                   }}
                 >
-                  Email Body HTML
+                  Body HTML ({selectedIndustry})
                 </button>
                 <button
                   type="button"
@@ -510,7 +661,7 @@ export function EmailTemplateView({
                     cursor: "pointer",
                   }}
                 >
-                  Signature & Footer HTML
+                  Signature & Footer HTML (Shared)
                 </button>
               </div>
 
@@ -539,8 +690,8 @@ export function EmailTemplateView({
               <div>
                 <textarea
                   ref={bodyTextareaRef}
-                  value={template.bodyHtml}
-                  onChange={(e) => setTemplate((p) => ({ ...p, bodyHtml: e.target.value }))}
+                  value={currentIndustryBodyHtml}
+                  onChange={(e) => handleUpdateCurrentIndustry({ bodyHtml: e.target.value })}
                   rows={14}
                   style={{
                     width: "100%",
@@ -558,13 +709,13 @@ export function EmailTemplateView({
                   spellCheck={false}
                 />
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "6px", fontSize: "11px", color: "var(--muted)" }}>
-                  <span>Tip: Supports standard HTML tags: <code>&lt;b&gt;</code>, <code>&lt;a&gt;</code>, <code>&lt;br&gt;</code>, inline CSS styles.</span>
+                  <span>Tip: Supports standard HTML tags: <code>&lt;b&gt;</code>, <code>&lt;a&gt;</code>, <code>&lt;br&gt;</code>, inline CTA buttons table.</span>
                   <button
                     type="button"
-                    onClick={() => setTemplate((p) => ({ ...p, bodyHtml: DEFAULT_EMAIL_BODY_HTML }))}
+                    onClick={resetCurrentIndustry}
                     style={{ background: "none", border: "none", color: "#2563eb", cursor: "pointer", textDecoration: "underline", fontSize: "11px" }}
                   >
-                    Restore default body
+                    Restore {selectedIndustry} default
                   </button>
                 </div>
               </div>
@@ -591,7 +742,7 @@ export function EmailTemplateView({
                   spellCheck={false}
                 />
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "6px", fontSize: "11px", color: "var(--muted)" }}>
-                  <span>Custom signature appended below the AI Architecture Diagram.</span>
+                  <span>Custom signature appended below the AI Architecture Diagram across all segments.</span>
                   <button
                     type="button"
                     onClick={() => setTemplate((p) => ({ ...p, signatureHtml: DEFAULT_EMAIL_SIGNATURE_HTML }))}
@@ -617,36 +768,12 @@ export function EmailTemplateView({
                   <div className="chrome-dot green" />
                 </div>
                 <span style={{ fontSize: "11.5px", fontWeight: 700, color: "var(--muted)" }}>
-                  Gmail Preview
+                  Gmail Preview · {selectedIndustry}
                 </span>
               </div>
 
-              {/* Persona Selector & Device Switcher */}
+              {/* Device Switcher */}
               <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                <select
-                  value={activeLead.id}
-                  onChange={(e) => {
-                    const found = SAMPLE_LEADS.find((l) => l.id === e.target.value);
-                    if (found) setActiveLead(found);
-                  }}
-                  style={{
-                    padding: "3px 8px",
-                    border: "1px solid #cbd5e1",
-                    borderRadius: "5px",
-                    fontSize: "11px",
-                    fontWeight: 600,
-                    background: "#fff",
-                    color: "var(--ink)",
-                  }}
-                  title="Switch test brand data"
-                >
-                  {SAMPLE_LEADS.map((l) => (
-                    <option key={l.id} value={l.id}>
-                      {l.brand} ({l.name})
-                    </option>
-                  ))}
-                </select>
-
                 <div style={{ display: "flex", gap: "2px", background: "#f1f5f9", padding: "2px", borderRadius: "6px" }}>
                   <button
                     type="button"
@@ -684,6 +811,11 @@ export function EmailTemplateView({
 
                 {/* Email Subject Header */}
                 <div style={{ padding: "16px 20px", borderBottom: "1px solid #f1f5f9" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "6px" }}>
+                    <span style={{ background: "#eff6ff", color: "#2563eb", fontSize: "10.5px", fontWeight: 700, padding: "2px 7px", borderRadius: "4px" }}>
+                      {selectedIndustry} Segment
+                    </span>
+                  </div>
                   <h3 style={{ margin: "0 0 10px", fontSize: "15px", fontWeight: 700, color: "#0f172a", lineHeight: 1.4 }}>
                     {previewSubject}
                   </h3>
@@ -747,7 +879,7 @@ export function EmailTemplateView({
                           {activeLead.brand.toUpperCase()} AI OPS LAYER
                         </span>
                         <span style={{ fontSize: "10px", background: "#dcfce7", color: "#15803d", padding: "2px 6px", borderRadius: "4px", fontWeight: 700 }}>
-                          Auto-Attached PNG
+                          Auto-Attached PNG Diagram
                         </span>
                       </div>
 
@@ -755,15 +887,15 @@ export function EmailTemplateView({
                       <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "8px", margin: "10px 0" }}>
                         <div style={{ background: "#ffedd5", border: "1px solid #fdba74", borderRadius: "6px", padding: "6px 8px" }}>
                           <span style={{ fontSize: "9px", fontWeight: 700, color: "#9a3412", display: "block" }}>ATTRACT</span>
-                          <span style={{ fontSize: "8.5px", color: "#c2410c" }}>Viral Traffic Ingestion</span>
+                          <span style={{ fontSize: "8.5px", color: "#c2410c" }}>Traffic Ingestion</span>
                         </div>
                         <div style={{ background: "#ede9fe", border: "1px solid #c4b5fd", borderRadius: "6px", padding: "6px 8px" }}>
                           <span style={{ fontSize: "9px", fontWeight: 700, color: "#5b21b6", display: "block" }}>CONVERT</span>
-                          <span style={{ fontSize: "8.5px", color: "#6d28d9" }}>Drop Page Dynamic Cart</span>
+                          <span style={{ fontSize: "8.5px", color: "#6d28d9" }}>Ops Automation</span>
                         </div>
                         <div style={{ background: "#dcfce7", border: "1px solid #86efac", borderRadius: "6px", padding: "6px 8px" }}>
                           <span style={{ fontSize: "9px", fontWeight: 700, color: "#166534", display: "block" }}>SCALE</span>
-                          <span style={{ fontSize: "8.5px", color: "#15803d" }}>Inventory Forecasting</span>
+                          <span style={{ fontSize: "8.5px", color: "#15803d" }}>Retention Loops</span>
                         </div>
                       </div>
 

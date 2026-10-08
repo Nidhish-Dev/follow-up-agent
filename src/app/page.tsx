@@ -418,8 +418,8 @@ function LeadQualificationSection({
               color: "var(--ink)",
             }}
           >
-            <option value="or">Qualify if Opens ≥ {rules.minOpens} OR Clicked (Recommended)</option>
-            <option value="and">Require BOTH Opens ≥ {rules.minOpens} AND Clicked</option>
+            <option value="or">Qualify if Clicked ≥ {rules.minClicks} OR Opened ≥ {rules.minOpens} (Recommended)</option>
+            <option value="and">Require BOTH Opened ≥ {rules.minOpens} AND Clicked</option>
           </select>
         </div>
       </div>
