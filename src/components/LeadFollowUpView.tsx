@@ -25,6 +25,7 @@ import { MasterLead, SheetSearchResponse, MOCK_MASTER_LEADS } from "@/lib/google
 import {
   EmailTemplateConfig,
   DEFAULT_EMAIL_TEMPLATE,
+  matchIndustrySegment,
 } from "@/lib/email-template-types";
 
 export function LeadFollowUpView({
@@ -180,22 +181,7 @@ export function LeadFollowUpView({
     const leadIndustry = lead.industry || lead.raw?.Industry || lead.raw?.industry || "";
     // If template has industryTemplates, match segment
     if (template.industryTemplates && Object.keys(template.industryTemplates).length > 0) {
-      // Find matching industry segment
-      const norm = String(leadIndustry || "").toLowerCase().trim().replace(/[^a-z0-9]/g, "");
-      let segKey = "D2C-General";
-      if (norm.includes("apparel") || norm.includes("fashion") || norm.includes("clothing") || norm.includes("wear")) segKey = "D2C-Apparel";
-      else if (norm.includes("hospitality") || norm.includes("hotel") || norm.includes("resort") || norm.includes("lodge")) segKey = "Hospitality";
-      else if (norm.includes("travel") || norm.includes("tour") || norm.includes("expedition") || norm.includes("trip")) segKey = "Travel";
-      else if (norm.includes("fitness") || norm.includes("gym") || norm.includes("workout") || norm.includes("crossfit")) segKey = "Fitness";
-      else if (norm.includes("health") || norm.includes("clinic") || norm.includes("medical") || norm.includes("doctor") || norm.includes("dental") || norm.includes("pharma")) segKey = "Health";
-      else if (norm.includes("realestate") || norm.includes("realty") || norm.includes("property") || norm.includes("brokerage") || norm.includes("realtor")) segKey = "Real Estate";
-      else if (norm.includes("agency") || norm.includes("marketing") || norm.includes("advertising") || norm.includes("media") || norm.includes("creative")) segKey = "Marketing Agency";
-      else if (norm.includes("beauty") || norm.includes("cosmetic") || norm.includes("skincare") || norm.includes("makeup") || norm.includes("haircare")) segKey = "D2C-Beauty";
-      else if (norm.includes("food") || norm.includes("beverage") || norm.includes("coffee") || norm.includes("tea") || norm.includes("drink") || norm.includes("snack") || norm.includes("bakery")) segKey = "D2C-Food&Beverage";
-      else if (norm.includes("wellness") || norm.includes("supplement") || norm.includes("vitamin") || norm.includes("nutrition") || norm.includes("mental")) segKey = "D2C-Wellness";
-      else if (norm.includes("home") || norm.includes("furniture") || norm.includes("decor") || norm.includes("kitchen") || norm.includes("bedding") || norm.includes("goods")) segKey = "D2C-HomeGoods";
-      else if (norm.includes("d2c") || norm.includes("ecommerce") || norm.includes("retail")) segKey = "D2C-General";
-
+      const segKey = matchIndustrySegment(leadIndustry, Object.keys(template.industryTemplates));
       if (template.industryTemplates[segKey]) {
         if (template.industryTemplates[segKey].subject) resolvedSubject = template.industryTemplates[segKey].subject;
         if (template.industryTemplates[segKey].bodyHtml) resolvedBodyHtml = template.industryTemplates[segKey].bodyHtml;
@@ -235,21 +221,7 @@ export function LeadFollowUpView({
 
       const leadIndustry = selectedLead.industry || selectedLead.raw?.Industry || selectedLead.raw?.industry || "";
       if (template.industryTemplates && Object.keys(template.industryTemplates).length > 0) {
-        const norm = String(leadIndustry || "").toLowerCase().trim().replace(/[^a-z0-9]/g, "");
-        let segKey = "D2C-General";
-        if (norm.includes("apparel") || norm.includes("fashion") || norm.includes("clothing") || norm.includes("wear")) segKey = "D2C-Apparel";
-        else if (norm.includes("hospitality") || norm.includes("hotel") || norm.includes("resort") || norm.includes("lodge")) segKey = "Hospitality";
-        else if (norm.includes("travel") || norm.includes("tour") || norm.includes("expedition") || norm.includes("trip")) segKey = "Travel";
-        else if (norm.includes("fitness") || norm.includes("gym") || norm.includes("workout") || norm.includes("crossfit")) segKey = "Fitness";
-        else if (norm.includes("health") || norm.includes("clinic") || norm.includes("medical") || norm.includes("doctor") || norm.includes("dental") || norm.includes("pharma")) segKey = "Health";
-        else if (norm.includes("realestate") || norm.includes("realty") || norm.includes("property") || norm.includes("brokerage") || norm.includes("realtor")) segKey = "Real Estate";
-        else if (norm.includes("agency") || norm.includes("marketing") || norm.includes("advertising") || norm.includes("media") || norm.includes("creative")) segKey = "Marketing Agency";
-        else if (norm.includes("beauty") || norm.includes("cosmetic") || norm.includes("skincare") || norm.includes("makeup") || norm.includes("haircare")) segKey = "D2C-Beauty";
-        else if (norm.includes("food") || norm.includes("beverage") || norm.includes("coffee") || norm.includes("tea") || norm.includes("drink") || norm.includes("snack") || norm.includes("bakery")) segKey = "D2C-Food&Beverage";
-        else if (norm.includes("wellness") || norm.includes("supplement") || norm.includes("vitamin") || norm.includes("nutrition") || norm.includes("mental")) segKey = "D2C-Wellness";
-        else if (norm.includes("home") || norm.includes("furniture") || norm.includes("decor") || norm.includes("kitchen") || norm.includes("bedding") || norm.includes("goods")) segKey = "D2C-HomeGoods";
-        else if (norm.includes("d2c") || norm.includes("ecommerce") || norm.includes("retail")) segKey = "D2C-General";
-
+        const segKey = matchIndustrySegment(leadIndustry, Object.keys(template.industryTemplates));
         if (template.industryTemplates[segKey]) {
           if (template.industryTemplates[segKey].subject) tplSubject = template.industryTemplates[segKey].subject;
           if (template.industryTemplates[segKey].bodyHtml) tplBodyHtml = template.industryTemplates[segKey].bodyHtml;

@@ -13,6 +13,9 @@ import {
   Building,
   Layers,
   Sparkles,
+  Plus,
+  Trash2,
+  X,
 } from "lucide-react";
 import {
   EmailTemplateConfig,
@@ -22,6 +25,8 @@ import {
   DEFAULT_INDUSTRY_TEMPLATES,
   INDUSTRY_LIST,
   IndustryType,
+  IndustryTemplateItem,
+  getStarterIndustryTemplate,
 } from "@/lib/email-template-types";
 
 interface SampleLead {
@@ -54,18 +59,41 @@ export function EmailTemplateView({
   setNotice: (n: any) => void;
 }) {
   const [template, setTemplate] = useState<EmailTemplateConfig>(DEFAULT_EMAIL_TEMPLATE);
-  const [selectedIndustry, setSelectedIndustry] = useState<IndustryType>("D2C-Apparel");
+  const [selectedIndustry, setSelectedIndustry] = useState<string>("D2C-Apparel");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [previewDevice, setPreviewDevice] = useState<"desktop" | "mobile">("desktop");
   const [copied, setCopied] = useState(false);
   const [activeTab, setActiveTab] = useState<"body" | "signature">("body");
 
+  // Create Industry Modal state
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [newIndustryName, setNewIndustryName] = useState("");
+  const [cloneFromIndustry, setCloneFromIndustry] = useState<string>("D2C-General");
+
   const bodyTextareaRef = useRef<HTMLTextAreaElement>(null);
   const sigTextareaRef = useRef<HTMLTextAreaElement>(null);
 
-  // Initialize sample lead based on selected industry preset
-  const activePreset = DEFAULT_INDUSTRY_TEMPLATES[selectedIndustry] || DEFAULT_INDUSTRY_TEMPLATES["D2C-Apparel"];
+  // Combine standard 12 presets with user-defined custom industries
+  const customIndustries = template.customIndustries || [];
+  const allIndustries = Array.from(new Set([...INDUSTRY_LIST, ...customIndustries]));
+  const isCustomIndustry = !INDUSTRY_LIST.includes(selectedIndustry as IndustryType);
+
+  // Initialize sample lead based on selected industry preset or dynamic custom fallback
+  const preset = DEFAULT_INDUSTRY_TEMPLATES[selectedIndustry];
+  const activePreset: IndustryTemplateItem = preset || {
+    id: selectedIndustry,
+    name: selectedIndustry,
+    subject: template.industryTemplates?.[selectedIndustry]?.subject || `Scaling operations & growth for {{brand}} with AI`,
+    bodyHtml: template.industryTemplates?.[selectedIndustry]?.bodyHtml || "",
+    sampleBrand: `${selectedIndustry} Brand`,
+    sampleName: "Alex",
+    sampleEmail: `alex@${selectedIndustry.toLowerCase().replace(/[^a-z0-9]/g, "") || "brand"}.co`,
+    sampleHook: `${selectedIndustry} Brand has built impressive momentum and genuine loyalty across the vertical.`,
+    sampleCloser: "That solid foundation is set; vertical AI unlocks the next tier of scale.",
+    sampleVerticalFocus: `Tailored ${selectedIndustry} ops, automated lead engagement, and retention intelligence loops.`,
+  };
+
   const activeLead: SampleLead = {
     id: activePreset.id,
     name: activePreset.sampleName,
@@ -95,13 +123,17 @@ export function EmailTemplateView({
               ...(DEFAULT_EMAIL_TEMPLATE.industryTemplates || {}),
               ...(data.template.industryTemplates || {}),
             };
+            const loadedCustom = Array.isArray(data.template.customIndustries)
+              ? data.template.customIndustries
+              : [];
             setTemplate({
               ...DEFAULT_EMAIL_TEMPLATE,
               ...data.template,
+              customIndustries: loadedCustom,
               industryTemplates: mergedIndustryTemplates,
             });
-            if (data.template.selectedIndustry && INDUSTRY_LIST.includes(data.template.selectedIndustry as IndustryType)) {
-              setSelectedIndustry(data.template.selectedIndustry as IndustryType);
+            if (data.template.selectedIndustry) {
+              setSelectedIndustry(data.template.selectedIndustry);
             }
           }
         }
@@ -153,6 +185,70 @@ export function EmailTemplateView({
     });
   };
 
+  // Create a brand new custom industry
+  const handleCreateIndustry = () => {
+    const trimmed = newIndustryName.trim();
+    if (!trimmed) {
+      setNotice({ type: "error", text: "Please enter a valid industry vertical name." });
+      return;
+    }
+    if (allIndustries.some((i) => i.toLowerCase() === trimmed.toLowerCase())) {
+      setNotice({ type: "error", text: `Industry "${trimmed}" already exists.` });
+      return;
+    }
+
+    const starter = getStarterIndustryTemplate(trimmed, cloneFromIndustry);
+    setTemplate((prev) => {
+      const prevCustom = prev.customIndustries || [];
+      const updatedCustom = prevCustom.includes(trimmed) ? prevCustom : [...prevCustom, trimmed];
+      return {
+        ...prev,
+        customIndustries: updatedCustom,
+        industryTemplates: {
+          ...(prev.industryTemplates || {}),
+          [trimmed]: starter,
+        },
+        selectedIndustry: trimmed,
+      };
+    });
+
+    setSelectedIndustry(trimmed);
+    setNewIndustryName("");
+    setIsCreateModalOpen(false);
+    setNotice({
+      type: "success",
+      text: `Created new industry "${trimmed}"! You can now customize its subject line and email body. Remember to click "Save All Templates".`,
+    });
+  };
+
+  // Delete a custom industry
+  const handleDeleteIndustry = (indToDelete: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    if (!confirm(`Are you sure you want to delete the custom industry template "${indToDelete}"?`)) {
+      return;
+    }
+
+    setTemplate((prev) => {
+      const updatedCustom = (prev.customIndustries || []).filter((i) => i !== indToDelete);
+      const updatedTemplates = { ...(prev.industryTemplates || {}) };
+      delete updatedTemplates[indToDelete];
+      return {
+        ...prev,
+        customIndustries: updatedCustom,
+        industryTemplates: updatedTemplates,
+      };
+    });
+
+    if (selectedIndustry === indToDelete) {
+      setSelectedIndustry("D2C-Apparel");
+    }
+
+    setNotice({
+      type: "info",
+      text: `Deleted industry "${indToDelete}". Click "Save All Templates" to persist changes to the database.`,
+    });
+  };
+
   const saveTemplate = async () => {
     if (!fbUser) return;
     setSaving(true);
@@ -179,7 +275,7 @@ export function EmailTemplateView({
       }
       setNotice({
         type: "success",
-        text: `Email HTML templates for all 12 industries successfully saved! The workflow will automatically pick templates matching each lead's industry.`,
+        text: `Email HTML templates for all ${allIndustries.length} industries successfully saved! The workflow will automatically pick templates matching each lead's industry.`,
       });
     } catch (err: any) {
       setNotice({
@@ -192,18 +288,25 @@ export function EmailTemplateView({
   };
 
   const resetCurrentIndustry = () => {
-    const preset = DEFAULT_INDUSTRY_TEMPLATES[selectedIndustry];
-    if (!preset) return;
+    if (isCustomIndustry) {
+      if (confirm(`Reset "${selectedIndustry}" back to starter boilerplate?`)) {
+        const starter = getStarterIndustryTemplate(selectedIndustry);
+        handleUpdateCurrentIndustry(starter);
+      }
+      return;
+    }
+    const presetItem = DEFAULT_INDUSTRY_TEMPLATES[selectedIndustry];
+    if (!presetItem) return;
     if (confirm(`Reset "${selectedIndustry}" email copy and subject back to default?`)) {
       handleUpdateCurrentIndustry({
-        subject: preset.subject,
-        bodyHtml: preset.bodyHtml,
+        subject: presetItem.subject,
+        bodyHtml: presetItem.bodyHtml,
       });
     }
   };
 
   const resetAllToDefault = () => {
-    if (confirm("Reset ALL 12 industry email templates, settings, and signature back to defaults?")) {
+    if (confirm("Reset ALL industry email templates, settings, and signature back to defaults?")) {
       setTemplate(DEFAULT_EMAIL_TEMPLATE);
     }
   };
@@ -295,7 +398,7 @@ export function EmailTemplateView({
               Industry Segment Email Designer & Router
             </h2>
             <p style={{ margin: "2px 0 0", fontSize: "11.5px", color: "var(--muted)" }}>
-              Configure customized email copy for all 12 industry segments. The workflow automatically selects the template matching each lead&apos;s industry.
+              Configure customized email copy for all {allIndustries.length} industry segments. The workflow automatically selects the template matching each lead&apos;s industry.
             </p>
           </div>
         </div>
@@ -368,31 +471,54 @@ export function EmailTemplateView({
           padding: "12px 16px",
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "10px" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "10px", flexWrap: "wrap", gap: "8px" }}>
           <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
             <Layers size={15} color="#2563eb" />
             <span style={{ fontSize: "12px", fontWeight: 700, color: "var(--ink)", textTransform: "uppercase", letterSpacing: "0.5px" }}>
-              Select Industry Segment ({INDUSTRY_LIST.length} Segments)
+              Select Industry Segment ({allIndustries.length} Segments)
             </span>
           </div>
-          <span style={{ fontSize: "11px", color: "var(--muted)" }}>
-            Workflow auto-matches the lead&apos;s Sheet Industry to these templates
-          </span>
+          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+            <span style={{ fontSize: "11px", color: "var(--muted)" }}>
+              Workflow auto-matches the lead&apos;s Sheet Industry to these templates
+            </span>
+            <button
+              type="button"
+              onClick={() => setIsCreateModalOpen(true)}
+              style={{
+                background: "#f0fdf4",
+                border: "1px solid #86efac",
+                color: "#166534",
+                padding: "4px 10px",
+                borderRadius: "6px",
+                fontSize: "11.5px",
+                fontWeight: 700,
+                display: "flex",
+                alignItems: "center",
+                gap: "5px",
+                cursor: "pointer",
+                transition: "all 0.15s ease",
+              }}
+            >
+              <Plus size={13} />
+              + Create Industry
+            </button>
+          </div>
         </div>
 
         <div
           style={{
             display: "grid",
-            gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))",
+            gridTemplateColumns: "repeat(auto-fill, minmax(145px, 1fr))",
             gap: "8px",
           }}
         >
-          {INDUSTRY_LIST.map((ind) => {
+          {allIndustries.map((ind) => {
             const isSelected = selectedIndustry === ind;
+            const isCustom = !INDUSTRY_LIST.includes(ind as IndustryType);
             return (
-              <button
+              <div
                 key={ind}
-                type="button"
                 onClick={() => setSelectedIndustry(ind)}
                 style={{
                   display: "flex",
@@ -407,14 +533,91 @@ export function EmailTemplateView({
                   fontSize: "12px",
                   cursor: "pointer",
                   transition: "all 0.15s ease",
-                  textAlign: "left",
+                  userSelect: "none",
                 }}
               >
-                <span>{ind}</span>
-                {isSelected && <span style={{ width: "6px", height: "6px", borderRadius: "50%", background: "#2563eb" }} />}
-              </button>
+                <div style={{ display: "flex", alignItems: "center", gap: "6px", overflow: "hidden" }}>
+                  <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {ind}
+                  </span>
+                  {isCustom && (
+                    <span
+                      style={{
+                        fontSize: "9px",
+                        padding: "1px 4px",
+                        borderRadius: "3px",
+                        background: isSelected ? "#bfdbfe" : "#e2e8f0",
+                        color: isSelected ? "#1e40af" : "#64748b",
+                        fontWeight: 700,
+                        textTransform: "uppercase",
+                      }}
+                    >
+                      Custom
+                    </span>
+                  )}
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+                  {isCustom && (
+                    <button
+                      type="button"
+                      title={`Delete custom industry "${ind}"`}
+                      onClick={(e) => handleDeleteIndustry(ind, e)}
+                      style={{
+                        background: "transparent",
+                        border: "none",
+                        padding: "2px",
+                        borderRadius: "4px",
+                        color: "#94a3b8",
+                        cursor: "pointer",
+                        display: "grid",
+                        placeItems: "center",
+                        lineHeight: 1,
+                      }}
+                      onMouseEnter={(e) => (e.currentTarget.style.color = "#ef4444")}
+                      onMouseLeave={(e) => (e.currentTarget.style.color = "#94a3b8")}
+                    >
+                      <Trash2 size={12} />
+                    </button>
+                  )}
+                  {isSelected && <span style={{ width: "6px", height: "6px", borderRadius: "50%", background: "#2563eb", flexShrink: 0 }} />}
+                </div>
+              </div>
             );
           })}
+
+          {/* Quick Create Card Button */}
+          <button
+            type="button"
+            onClick={() => setIsCreateModalOpen(true)}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: "6px",
+              padding: "8px 10px",
+              borderRadius: "6px",
+              border: "1px dashed #94a3b8",
+              background: "#ffffff",
+              color: "#475569",
+              fontWeight: 600,
+              fontSize: "12px",
+              cursor: "pointer",
+              transition: "all 0.15s ease",
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.borderColor = "#2563eb";
+              e.currentTarget.style.color = "#2563eb";
+              e.currentTarget.style.background = "#eff6ff";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.borderColor = "#94a3b8";
+              e.currentTarget.style.color = "#475569";
+              e.currentTarget.style.background = "#ffffff";
+            }}
+          >
+            <Plus size={13} />
+            <span>New Industry</span>
+          </button>
         </div>
       </div>
 
@@ -426,8 +629,8 @@ export function EmailTemplateView({
           {/* Active Segment Badge */}
           <div
             style={{
-              background: "#f0fdf4",
-              border: "1px solid #bbf7d0",
+              background: isCustomIndustry ? "#f5f3ff" : "#f0fdf4",
+              border: isCustomIndustry ? "1px solid #ddd6fe" : "1px solid #bbf7d0",
               borderRadius: "8px",
               padding: "10px 14px",
               display: "flex",
@@ -436,32 +639,56 @@ export function EmailTemplateView({
             }}
           >
             <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-              <Building size={16} color="#16a34a" />
+              <Building size={16} color={isCustomIndustry ? "#7c3aed" : "#16a34a"} />
               <div>
-                <span style={{ fontSize: "12px", fontWeight: 700, color: "#166534" }}>
-                  Editing Template for Segment: {selectedIndustry}
+                <span style={{ fontSize: "12px", fontWeight: 700, color: isCustomIndustry ? "#5b21b6" : "#166534" }}>
+                  Editing Template for Segment: {selectedIndustry} {isCustomIndustry ? "(Custom Industry)" : "(Preset)"}
                 </span>
-                <span style={{ display: "block", fontSize: "11px", color: "#15803d" }}>
+                <span style={{ display: "block", fontSize: "11px", color: isCustomIndustry ? "#6d28d9" : "#15803d" }}>
                   Sample Brand: {activePreset.sampleBrand} · Lead: {activePreset.sampleName}
                 </span>
               </div>
             </div>
-            <button
-              type="button"
-              onClick={resetCurrentIndustry}
-              style={{
-                background: "#fff",
-                border: "1px solid #86efac",
-                color: "#166534",
-                padding: "3px 8px",
-                borderRadius: "5px",
-                fontSize: "11px",
-                fontWeight: 600,
-                cursor: "pointer",
-              }}
-            >
-              Reset {selectedIndustry}
-            </button>
+            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+              {isCustomIndustry && (
+                <button
+                  type="button"
+                  onClick={() => handleDeleteIndustry(selectedIndustry)}
+                  style={{
+                    background: "#fff",
+                    border: "1px solid #fca5a5",
+                    color: "#dc2626",
+                    padding: "3px 8px",
+                    borderRadius: "5px",
+                    fontSize: "11px",
+                    fontWeight: 600,
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "4px",
+                  }}
+                >
+                  <Trash2 size={11} />
+                  Delete Industry
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={resetCurrentIndustry}
+                style={{
+                  background: "#fff",
+                  border: isCustomIndustry ? "1px solid #c4b5fd" : "1px solid #86efac",
+                  color: isCustomIndustry ? "#6d28d9" : "#166534",
+                  padding: "3px 8px",
+                  borderRadius: "5px",
+                  fontSize: "11px",
+                  fontWeight: 600,
+                  cursor: "pointer",
+                }}
+              >
+                Reset {selectedIndustry}
+              </button>
+            </div>
           </div>
 
           {/* 1. Subject Line for Current Industry */}
@@ -933,6 +1160,168 @@ export function EmailTemplateView({
           </div>
         </div>
       </div>
+
+      {/* Create New Industry Modal */}
+      {isCreateModalOpen && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: "rgba(15, 23, 42, 0.6)",
+            backdropFilter: "blur(3px)",
+            display: "grid",
+            placeItems: "center",
+            zIndex: 9999,
+            padding: "20px",
+          }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setIsCreateModalOpen(false);
+          }}
+        >
+          <div
+            style={{
+              background: "#ffffff",
+              borderRadius: "12px",
+              boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.15), 0 10px 10px -5px rgba(0, 0, 0, 0.05)",
+              width: "100%",
+              maxWidth: "460px",
+              padding: "24px",
+              border: "1px solid #e2e8f0",
+              position: "relative",
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: "16px" }}>
+              <div>
+                <h3 style={{ margin: "0 0 4px", fontSize: "16px", fontWeight: 700, color: "#0f172a" }}>
+                  Create New Industry Template
+                </h3>
+                <p style={{ margin: 0, fontSize: "12px", color: "#64748b" }}>
+                  Add a custom vertical for automatic lead routing (e.g., Fintech, Edtech, SaaS, Jewellery, Logistics).
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsCreateModalOpen(false)}
+                style={{
+                  background: "transparent",
+                  border: "none",
+                  cursor: "pointer",
+                  color: "#94a3b8",
+                  padding: "4px",
+                  borderRadius: "4px",
+                }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                handleCreateIndustry();
+              }}
+            >
+              <div style={{ marginBottom: "16px" }}>
+                <label style={{ display: "block", fontSize: "12px", fontWeight: 600, color: "#334155", marginBottom: "6px" }}>
+                  Industry Vertical Name <span style={{ color: "#ef4444" }}>*</span>
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. Fintech, SaaS, Jewellery, Logistics"
+                  value={newIndustryName}
+                  onChange={(e) => setNewIndustryName(e.target.value)}
+                  autoFocus
+                  style={{
+                    width: "100%",
+                    padding: "9px 12px",
+                    borderRadius: "6px",
+                    border: "1px solid #cbd5e1",
+                    fontSize: "13px",
+                    color: "#0f172a",
+                    boxSizing: "border-box",
+                  }}
+                />
+                <span style={{ display: "block", fontSize: "11px", color: "#64748b", marginTop: "4px" }}>
+                  Leads with this industry in Master Leads will automatically receive this email template.
+                </span>
+              </div>
+
+              <div style={{ marginBottom: "20px" }}>
+                <label style={{ display: "block", fontSize: "12px", fontWeight: 600, color: "#334155", marginBottom: "6px" }}>
+                  Copy Starter Boilerplate From
+                </label>
+                <select
+                  value={cloneFromIndustry}
+                  onChange={(e) => setCloneFromIndustry(e.target.value)}
+                  style={{
+                    width: "100%",
+                    padding: "9px 12px",
+                    borderRadius: "6px",
+                    border: "1px solid #cbd5e1",
+                    fontSize: "13px",
+                    color: "#0f172a",
+                    background: "#fff",
+                    boxSizing: "border-box",
+                  }}
+                >
+                  <option value="">Default Industry Starter Boilerplate</option>
+                  {INDUSTRY_LIST.map((ind) => (
+                    <option key={ind} value={ind}>
+                      Clone from {ind} (Preset)
+                    </option>
+                  ))}
+                  {template.customIndustries?.map((ind) => (
+                    <option key={ind} value={ind}>
+                      Clone from {ind} (Custom)
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px" }}>
+                <button
+                  type="button"
+                  onClick={() => setIsCreateModalOpen(false)}
+                  style={{
+                    padding: "8px 14px",
+                    borderRadius: "6px",
+                    border: "1px solid #cbd5e1",
+                    background: "#f8fafc",
+                    color: "#475569",
+                    fontSize: "12.5px",
+                    fontWeight: 600,
+                    cursor: "pointer",
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  style={{
+                    padding: "8px 16px",
+                    borderRadius: "6px",
+                    border: "none",
+                    background: "#2563eb",
+                    color: "#fff",
+                    fontSize: "12.5px",
+                    fontWeight: 600,
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "6px",
+                  }}
+                >
+                  <Plus size={14} />
+                  Create &amp; Edit Template
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

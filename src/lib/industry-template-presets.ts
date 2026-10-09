@@ -286,9 +286,19 @@ export const DEFAULT_INDUSTRY_TEMPLATES: Record<string, IndustryTemplateItem> = 
  * Normalizes any freeform industry name from Google Sheets or CRM
  * to one of the 12 predefined segments.
  */
-export function matchIndustrySegment(rawIndustry?: string): IndustryType {
+export function matchIndustrySegment(rawIndustry?: string, availableIndustries?: string[]): string {
   const norm = String(rawIndustry || "").toLowerCase().trim().replace(/[^a-z0-9]/g, "");
   if (!norm) return "D2C-General";
+
+  // Check custom/dynamic industries first
+  if (availableIndustries && availableIndustries.length > 0) {
+    for (const ind of availableIndustries) {
+      const cleanInd = ind.toLowerCase().trim().replace(/[^a-z0-9]/g, "");
+      if (cleanInd && (norm === cleanInd || norm.includes(cleanInd) || cleanInd.includes(norm))) {
+        return ind;
+      }
+    }
+  }
 
   if (norm.includes("apparel") || norm.includes("fashion") || norm.includes("clothing") || norm.includes("wear")) {
     return "D2C-Apparel";
@@ -328,4 +338,26 @@ export function matchIndustrySegment(rawIndustry?: string): IndustryType {
   }
 
   return "D2C-General";
+}
+
+export function getStarterIndustryTemplate(name: string, cloneFrom?: string): { subject: string; bodyHtml: string } {
+  if (cloneFrom && DEFAULT_INDUSTRY_TEMPLATES[cloneFrom]) {
+    const base = DEFAULT_INDUSTRY_TEMPLATES[cloneFrom];
+    return {
+      subject: base.subject,
+      bodyHtml: base.bodyHtml,
+    };
+  }
+
+  return {
+    subject: `You were curious. So we got to work. Here's {{brand}}'s entire AI ops layer.`,
+    bodyHtml: `<div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 14px; line-height: 1.55; color: #111827;">
+  Hi {{first_name}},<br><br>
+  {{achievement_hook}} <b>{{hook_closer}}</b><br><br>
+  In ${name}, scaling customer acquisition and day-to-day operations eats up team bandwidth unless the ops layer runs autonomously. <b>In 2026, vertical AI is how high-growth ${name} brands compound operations.</b> What we build is designed specifically around how {{brand}} operates: autonomous lead capture, tailored retention workflows, and vertical AI agents. {{vertical_focus}} <b>The agents we'd build reflect that.</b><br><br>
+  <b>Not a platform. Not generic automation. A system.</b><br><br>
+  I've attached a visual of what that infrastructure looks like for {{brand}} specifically—the ${name} agents, how they connect, and what each one runs. Worth 20 minutes to see what this would look like for {{brand}}? No pitch, no deck, just what we'd fix first. Book a slot or shoot a text if you have any questions.<br><br>
+  ${CTA_BUTTON_SNIPPET}
+</div>`,
+  };
 }

@@ -4,6 +4,7 @@ import {
   DEFAULT_INDUSTRY_TEMPLATES,
   INDUSTRY_LIST,
   matchIndustrySegment,
+  getStarterIndustryTemplate,
 } from "./industry-template-presets";
 
 export {
@@ -12,6 +13,7 @@ export {
   DEFAULT_INDUSTRY_TEMPLATES,
   INDUSTRY_LIST,
   matchIndustrySegment,
+  getStarterIndustryTemplate,
 };
 
 export interface EmailTemplateConfig {
@@ -25,6 +27,7 @@ export interface EmailTemplateConfig {
   senderName: string;
   senderEmail: string;
   selectedIndustry?: string;
+  customIndustries?: string[];
   industryTemplates?: Record<string, { subject: string; bodyHtml: string }>;
 }
 
@@ -79,5 +82,6 @@ export const DEFAULT_EMAIL_TEMPLATE: EmailTemplateConfig = {
   senderName: "Kashika Gupta",
   senderEmail: "team@grapelabs.in",
   selectedIndustry: "D2C-Apparel",
+  customIndustries: [],
   industryTemplates: defaultIndustryTemplatesMap,
 };
