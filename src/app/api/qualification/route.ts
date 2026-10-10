@@ -54,6 +54,12 @@ export async function POST(req: NextRequest) {
       matchMode: body.matchMode === "and" ? "and" : "or",
       excludeAlreadyContacted: typeof body.excludeAlreadyContacted === "boolean" ? body.excludeAlreadyContacted : true,
       deduplicateByEmail: typeof body.deduplicateByEmail === "boolean" ? body.deduplicateByEmail : true,
+      filterByIndustry: typeof body.filterByIndustry === "boolean" ? body.filterByIndustry : false,
+      industryFilterMode: body.industryFilterMode === "exclude" ? "exclude" : "include",
+      selectedIndustries: Array.isArray(body.selectedIndustries) ? body.selectedIndustries : [],
+      filterByDate: typeof body.filterByDate === "boolean" ? body.filterByDate : false,
+      dateFrom: typeof body.dateFrom === "string" ? body.dateFrom.trim() : "",
+      dateTo: typeof body.dateTo === "string" ? body.dateTo.trim() : "",
     };
 
     await docRef.set({ ...rules, updatedAt: new Date().toISOString() }, { merge: true });

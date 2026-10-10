@@ -5,6 +5,16 @@ export interface LeadQualificationRules {
   matchMode: "or" | "and";
   excludeAlreadyContacted: boolean;
   deduplicateByEmail: boolean;
+
+  // Industry Vertical Filter
+  filterByIndustry?: boolean;
+  industryFilterMode?: "include" | "exclude";
+  selectedIndustries?: string[];
+
+  // Date Duration Filter (Timestamp in Tracking Sheet)
+  filterByDate?: boolean;
+  dateFrom?: string; // YYYY-MM-DD
+  dateTo?: string; // YYYY-MM-DD
 }
 
 export const DEFAULT_QUALIFICATION_RULES: LeadQualificationRules = {
@@ -14,4 +24,11 @@ export const DEFAULT_QUALIFICATION_RULES: LeadQualificationRules = {
   matchMode: "or",
   excludeAlreadyContacted: true,
   deduplicateByEmail: true,
+  filterByIndustry: false,
+  industryFilterMode: "include",
+  selectedIndustries: [],
+  filterByDate: false,
+  dateFrom: "",
+  dateTo: "",
 };
+

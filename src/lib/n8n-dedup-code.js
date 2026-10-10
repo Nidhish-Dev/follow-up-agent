@@ -34,7 +34,15 @@ let rules = {
   minOpens: 3,
   includeClicked: true,
   minClicks: 1,
-  matchMode: 'or' // 'or' | 'and' (qualifies if clicked >= 1 time OR opened >= 3 times)
+  matchMode: 'or', // 'or' | 'and' (qualifies if clicked >= 1 time OR opened >= 3 times)
+  excludeAlreadyContacted: true,
+  deduplicateByEmail: true,
+  filterByIndustry: false,
+  industryFilterMode: 'include',
+  selectedIndustries: [],
+  filterByDate: false,
+  dateFrom: '',
+  dateTo: ''
 };
 
 let triggerBody = null;
@@ -52,11 +60,22 @@ if (triggerBody?.body && typeof triggerBody.body === 'object') {
 }
 
 if (triggerBody?.qualification) {
+  const q = triggerBody.qualification;
   rules = {
     ...rules,
-    ...triggerBody.qualification,
-    minOpens: Number(triggerBody.qualification.minOpens ?? rules.minOpens),
-    minClicks: Number(triggerBody.qualification.minClicks ?? rules.minClicks),
+    ...q,
+    minOpens: Number(q.minOpens ?? rules.minOpens),
+    minClicks: Number(q.minClicks ?? rules.minClicks),
+    includeClicked: q.includeClicked !== false,
+    matchMode: q.matchMode === 'and' ? 'and' : 'or',
+    excludeAlreadyContacted: q.excludeAlreadyContacted !== false,
+    deduplicateByEmail: q.deduplicateByEmail !== false,
+    filterByIndustry: Boolean(q.filterByIndustry),
+    industryFilterMode: q.industryFilterMode === 'exclude' ? 'exclude' : 'include',
+    selectedIndustries: Array.isArray(q.selectedIndustries) ? q.selectedIndustries : [],
+    filterByDate: Boolean(q.filterByDate),
+    dateFrom: String(q.dateFrom || '').trim(),
+    dateTo: String(q.dateTo || '').trim()
   };
 }
 
@@ -228,6 +247,72 @@ function extractRealFirstName(rawName, email) {
   return cleanName.charAt(0).toUpperCase() + cleanName.slice(1).toLowerCase();
 }
 
+// Helper to parse dates from various formats (e.g. '22/9/2026, 04:10', ISO, etc.)
+function parseTimestamp(raw) {
+  if (!raw) return null;
+  if (raw instanceof Date && !isNaN(raw.getTime())) return raw;
+  const s = String(raw).trim();
+  if (!s) return null;
+
+  // D/M/YYYY or DD/MM/YYYY with optional time, e.g. "22/9/2026, 04:10" or "22/09/2026"
+  const dmyMatch = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})(?:[,\s]+(\d{1,2}):(\d{1,2})(?::(\d{1,2}))?)?/);
+  if (dmyMatch) {
+    const day = parseInt(dmyMatch[1], 10);
+    const month = parseInt(dmyMatch[2], 10) - 1;
+    const year = parseInt(dmyMatch[3], 10);
+    const hour = dmyMatch[4] ? parseInt(dmyMatch[4], 10) : 0;
+    const minute = dmyMatch[5] ? parseInt(dmyMatch[5], 10) : 0;
+    const second = dmyMatch[6] ? parseInt(dmyMatch[6], 10) : 0;
+    const parsed = new Date(year, month, day, hour, minute, second);
+    if (!isNaN(parsed.getTime())) return parsed;
+  }
+
+  const direct = new Date(s);
+  if (!isNaN(direct.getTime())) return direct;
+  return null;
+}
+
+function isWithinDateRange(rawTs, fromStr, toStr) {
+  if (!fromStr && !toStr) return true;
+  const ts = parseTimestamp(rawTs);
+  if (!ts) return false;
+
+  if (fromStr) {
+    const fParts = fromStr.split('-');
+    if (fParts.length === 3) {
+      const fromDate = new Date(parseInt(fParts[0], 10), parseInt(fParts[1], 10) - 1, parseInt(fParts[2], 10), 0, 0, 0, 0);
+      if (ts < fromDate) return false;
+    }
+  }
+  if (toStr) {
+    const tParts = toStr.split('-');
+    if (tParts.length === 3) {
+      const toDate = new Date(parseInt(tParts[0], 10), parseInt(tParts[1], 10) - 1, parseInt(tParts[2], 10), 23, 59, 59, 999);
+      if (ts > toDate) return false;
+    }
+  }
+  return true;
+}
+
+function matchesIndustryFilter(rawIndustry, selectedIndustries, mode) {
+  if (!selectedIndustries || selectedIndustries.length === 0) return true;
+  const cleanLead = String(rawIndustry || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+  if (!cleanLead) {
+    const hasGeneral = selectedIndustries.some(i => {
+      const c = i.toLowerCase().replace(/[^a-z0-9]/g, '');
+      return c.includes('general') || c.includes('d2c');
+    });
+    return mode === 'exclude' ? !hasGeneral : hasGeneral;
+  }
+
+  const matched = selectedIndustries.some(ind => {
+    const cleanFilter = ind.toLowerCase().replace(/[^a-z0-9]/g, '');
+    return cleanFilter === cleanLead || cleanLead.includes(cleanFilter) || cleanFilter.includes(cleanLead);
+  });
+
+  return mode === 'exclude' ? !matched : matched;
+}
+
 // 4. PRIORITY A: Did webhook pass a specific lead from Dashboard / Master Leads?
 const webhookLead = triggerBody?.lead || (triggerBody?.leadEmail ? {
   email: triggerBody.leadEmail,
@@ -302,7 +387,15 @@ for (const item of trackingItems) {
   if (!rawEmail) continue;
 
   const email = rawEmail.toLowerCase();
-  if (existingResponseEmails.has(email)) continue;
+  if (rules.excludeAlreadyContacted && existingResponseEmails.has(email)) continue;
+
+  // DATE DURATION FILTER: Only count tracking events within specified date duration
+  if (rules.filterByDate && (rules.dateFrom || rules.dateTo)) {
+    const tsVal = row.Timestamp || row.timestamp || '';
+    if (!isWithinDateRange(tsVal, rules.dateFrom, rules.dateTo)) {
+      continue;
+    }
+  }
 
   if (!aggregatedLeads[email]) {
     const masterLead = masterLeadMap[email] || {};
@@ -363,6 +456,14 @@ for (const email in aggregatedLeads) {
   const lead = aggregatedLeads[email];
   if (!lead.Brand) continue;
 
+  // INDUSTRY FILTER: Check if lead's industry is included or excluded
+  if (rules.filterByIndustry && rules.selectedIndustries && rules.selectedIndustries.length > 0) {
+    const leadInd = lead.Industry || lead.industry || 'D2C-General';
+    if (!matchesIndustryFilter(leadInd, rules.selectedIndustries, rules.industryFilterMode)) {
+      continue;
+    }
+  }
+
   const meetsOpens = lead.opens >= rules.minOpens;
   const meetsClicks = rules.includeClicked && (lead.clicks >= rules.minClicks);
 
@@ -384,6 +485,9 @@ for (const email in aggregatedLeads) {
   }
 
   if (isQualified && triggerReason) {
+    if (rules.filterByDate && (rules.dateFrom || rules.dateTo)) {
+      triggerReason += \` [Date: \${rules.dateFrom || 'start'} to \${rules.dateTo || 'end'}]\`;
+    }
     lead.trigger_reason = triggerReason;
     qualified.push({ json: lead });
   }

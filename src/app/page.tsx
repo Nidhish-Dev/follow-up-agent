@@ -6,6 +6,7 @@ import { User, getAuth, signInAnonymously } from "firebase/auth";
 import { getApps, initializeApp } from "firebase/app";
 import { DAYS_MAP, formatScheduleSummary, formatTime12h, isScheduleDueNow, ScheduleConfig } from "@/lib/schedule-helper";
 import { DEFAULT_QUALIFICATION_RULES, LeadQualificationRules } from "@/lib/qualification-types";
+import { INDUSTRY_LIST } from "@/lib/email-template-types";
 import { EmailTemplateView } from "@/components/EmailTemplateView";
 import { LeadFollowUpView } from "@/components/LeadFollowUpView";
 import { N8nLogo, OpenAILogo, GmailLogo, SheetsLogo, TelegramLogo, DriveLogo } from "@/components/ServiceLogos";
@@ -229,6 +230,7 @@ function LeadQualificationSection({
   const [rules, setRules] = useState<LeadQualificationRules>(DEFAULT_QUALIFICATION_RULES);
   const [, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [availableIndustries, setAvailableIndustries] = useState<string[]>(Array.from(INDUSTRY_LIST));
 
   const fetchRules = async () => {
     if (!fbUser) return;
@@ -249,8 +251,30 @@ function LeadQualificationSection({
     }
   };
 
+  // Fetch custom industries from template configuration to dynamically populate checkboxes
   useEffect(() => {
-    if (fbUser) fetchRules();
+    if (!fbUser) return;
+    fetchRules();
+
+    const fetchCustomIndustries = async () => {
+      try {
+        const t = await fbUser.getIdToken();
+        const res = await fetch("/api/template", {
+          headers: { Authorization: `Bearer ${t}` },
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.template) {
+            const custom = Array.isArray(data.template.customIndustries) ? data.template.customIndustries : [];
+            const merged = Array.from(new Set([...INDUSTRY_LIST, ...custom]));
+            setAvailableIndustries(merged);
+          }
+        }
+      } catch (err) {
+        console.warn("Failed to load custom industries for qualification", err);
+      }
+    };
+    fetchCustomIndustries();
   }, [fbUser]);
 
   const saveRules = async () => {
@@ -269,11 +293,19 @@ function LeadQualificationSection({
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to save rules");
       setRules(data.rules);
+
+      const industryDesc = rules.filterByIndustry
+        ? ` • Industry filter (${rules.industryFilterMode === "exclude" ? "Exclude" : "Include"} ${rules.selectedIndustries?.length || 0})`
+        : "";
+      const dateDesc = rules.filterByDate
+        ? ` • Date duration (${rules.dateFrom || "Start"} to ${rules.dateTo || "End"})`
+        : "";
+
       setNotice({
         type: "success",
         text: `Lead qualification rules saved! Pipeline will qualify leads with ≥ ${data.rules.minOpens} opens ${
           data.rules.includeClicked ? `or clicked ≥ ${data.rules.minClicks} link(s)` : ""
-        }.`,
+        }${industryDesc}${dateDesc}.`,
       });
     } catch (err: any) {
       setNotice({
@@ -285,6 +317,8 @@ function LeadQualificationSection({
     }
   };
 
+  const selectedCount = rules.selectedIndustries?.length || 0;
+
   return (
     <div className="control-card" style={{ marginTop: "24px" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "16px", flexWrap: "wrap", gap: "12px" }}>
@@ -293,7 +327,7 @@ function LeadQualificationSection({
             <Filter size={18} />
           </div>
           <div>
-            <span className="eyebrow" style={{ display: "block", marginBottom: "2px" }}>DEDUPLICATE & QUALIFY LEADS1</span>
+            <span className="eyebrow" style={{ display: "block", marginBottom: "2px" }}>DEDUPLICATE &amp; QUALIFY LEADS1</span>
             <h3 style={{ margin: 0, fontSize: "17px", fontWeight: 700, color: "var(--ink)" }}>
               Lead Qualification Rules
             </h3>
@@ -313,20 +347,43 @@ function LeadQualificationSection({
       </div>
 
       <p style={{ fontSize: "12.5px", color: "var(--muted)", lineHeight: 1.55, margin: "0 0 16px" }}>
-        Configure which leads from your tracking sheets qualify for outreach generation in the <b>Deduplicate & Qualify Leads1</b> node.
+        Configure which leads from your tracking sheets qualify for outreach generation in the <b>Deduplicate &amp; Qualify Leads1</b> node. Filter by open/click engagement, industry vertical, and timestamp duration.
       </p>
 
       {/* Dynamic Rule Summary Callout */}
-      <div style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: "8px", padding: "12px 16px", marginBottom: "18px", display: "flex", alignItems: "center", gap: "10px" }}>
-        <Check size={16} color="#16a34a" />
-        <span style={{ fontSize: "12.5px", fontWeight: 600, color: "#166534" }}>
-          Active Rule: Qualify leads who opened ≥ <b>{rules.minOpens}</b> time(s){" "}
-          {rules.includeClicked
-            ? `${rules.matchMode === "or" ? "OR" : "AND"} clicked ≥ ${rules.minClicks} link(s)`
-            : ""}
-          {rules.excludeAlreadyContacted ? " • Excludes replied leads" : ""}
-          {rules.deduplicateByEmail ? " • Deduplicates by email" : ""}
-        </span>
+      <div style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: "8px", padding: "12px 16px", marginBottom: "18px", display: "flex", flexDirection: "column", gap: "6px" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+          <Check size={16} color="#16a34a" />
+          <span style={{ fontSize: "12.5px", fontWeight: 700, color: "#166534" }}>
+            Active Qualification Summary:
+          </span>
+        </div>
+        <div style={{ fontSize: "12px", color: "#15803d", paddingLeft: "24px", display: "flex", flexWrap: "wrap", gap: "8px" }}>
+          <span>
+            • Opened ≥ <b>{rules.minOpens}</b> time(s){" "}
+            {rules.includeClicked
+              ? `${rules.matchMode === "or" ? "OR" : "AND"} clicked ≥ ${rules.minClicks} link(s)`
+              : ""}
+          </span>
+          <span>
+            • Industry:{" "}
+            <b>
+              {rules.filterByIndustry
+                ? `${rules.industryFilterMode === "exclude" ? "Exclude" : "Only"} ${selectedCount} selected`
+                : "All industries included"}
+            </b>
+          </span>
+          <span>
+            • Timestamp Duration:{" "}
+            <b>
+              {rules.filterByDate
+                ? `${rules.dateFrom || "Any"} → ${rules.dateTo || "Any"}`
+                : "All time included"}
+            </b>
+          </span>
+          {rules.excludeAlreadyContacted && <span>• Excludes replied leads</span>}
+          {rules.deduplicateByEmail && <span>• Deduplicates by email</span>}
+        </div>
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "18px" }}>
@@ -422,6 +479,313 @@ function LeadQualificationSection({
             <option value="and">Require BOTH Opened ≥ {rules.minOpens} AND Clicked</option>
           </select>
         </div>
+      </div>
+
+      {/* Safeguards Checkboxes Row */}
+      <div style={{ marginTop: "16px", background: "var(--canvas)", padding: "12px 16px", borderRadius: "8px", border: "1px solid var(--line)", display: "flex", gap: "20px", flexWrap: "wrap" }}>
+        <label style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "12px", fontWeight: 600, color: "var(--ink)", cursor: "pointer" }}>
+          <input
+            type="checkbox"
+            checked={rules.excludeAlreadyContacted}
+            onChange={(e) => setRules((p) => ({ ...p, excludeAlreadyContacted: e.target.checked }))}
+          />
+          Exclude leads already in Automation response (prevent re-sending)
+        </label>
+        <label style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "12px", fontWeight: 600, color: "var(--ink)", cursor: "pointer" }}>
+          <input
+            type="checkbox"
+            checked={rules.deduplicateByEmail}
+            onChange={(e) => setRules((p) => ({ ...p, deduplicateByEmail: e.target.checked }))}
+          />
+          Deduplicate leads by Email (1 draft per contact)
+        </label>
+      </div>
+
+      {/* FILTER 1: Specific Industry Vertical Filter */}
+      <div style={{ marginTop: "16px", background: "var(--canvas)", padding: "16px", borderRadius: "8px", border: "1px solid var(--line)" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px", flexWrap: "wrap", gap: "8px" }}>
+          <label style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "13px", fontWeight: 700, color: "var(--ink)", cursor: "pointer" }}>
+            <input
+              type="checkbox"
+              checked={Boolean(rules.filterByIndustry)}
+              onChange={(e) => setRules((p) => ({ ...p, filterByIndustry: e.target.checked }))}
+            />
+            <span>Filter by Industry Vertical</span>
+          </label>
+
+          {rules.filterByIndustry && (
+            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+              <button
+                type="button"
+                onClick={() => setRules((p) => ({ ...p, selectedIndustries: [...availableIndustries] }))}
+                style={{
+                  background: "#fff",
+                  border: "1px solid #cbd5e1",
+                  borderRadius: "5px",
+                  padding: "4px 9px",
+                  fontSize: "11px",
+                  fontWeight: 600,
+                  color: "#2563eb",
+                  cursor: "pointer",
+                }}
+              >
+                Check All ({availableIndustries.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setRules((p) => ({ ...p, selectedIndustries: [] }))}
+                style={{
+                  background: "#fff",
+                  border: "1px solid #cbd5e1",
+                  borderRadius: "5px",
+                  padding: "4px 9px",
+                  fontSize: "11px",
+                  fontWeight: 600,
+                  color: "#64748b",
+                  cursor: "pointer",
+                }}
+              >
+                Uncheck All
+              </button>
+            </div>
+          )}
+        </div>
+
+        <span style={{ display: "block", fontSize: "11.5px", color: "var(--muted)", marginBottom: "12px" }}>
+          Matches column <b>Industry</b> in the tracking sheet and master leads. Check or uncheck industries to include or exclude.
+        </span>
+
+        {rules.filterByIndustry ? (
+          <div>
+            {/* Mode selection */}
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "16px",
+                marginBottom: "12px",
+                background: "#f8fafc",
+                padding: "8px 12px",
+                borderRadius: "6px",
+                border: "1px solid #e2e8f0",
+                flexWrap: "wrap",
+              }}
+            >
+              <span style={{ fontSize: "11.5px", fontWeight: 700, color: "#475569" }}>Filter Mode:</span>
+              <label style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "12px", fontWeight: 600, color: "#334155", cursor: "pointer" }}>
+                <input
+                  type="radio"
+                  name="industryFilterMode"
+                  checked={rules.industryFilterMode !== "exclude"}
+                  onChange={() => setRules((p) => ({ ...p, industryFilterMode: "include" }))}
+                />
+                Include Checked ({selectedCount} allowed)
+              </label>
+              <label style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "12px", fontWeight: 600, color: "#334155", cursor: "pointer" }}>
+                <input
+                  type="radio"
+                  name="industryFilterMode"
+                  checked={rules.industryFilterMode === "exclude"}
+                  onChange={() => setRules((p) => ({ ...p, industryFilterMode: "exclude" }))}
+                />
+                Exclude Checked ({selectedCount} excluded)
+              </label>
+            </div>
+
+            {/* Industry checkboxes list */}
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fill, minmax(145px, 1fr))",
+                gap: "8px",
+                maxHeight: "220px",
+                overflowY: "auto",
+                padding: "4px",
+                background: "#ffffff",
+                borderRadius: "6px",
+                border: "1px solid #e2e8f0",
+              }}
+            >
+              {availableIndustries.map((ind) => {
+                const isChecked = (rules.selectedIndustries || []).includes(ind);
+                return (
+                  <label
+                    key={ind}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "7px",
+                      padding: "6px 9px",
+                      borderRadius: "6px",
+                      border: isChecked ? "1px solid #93c5fd" : "1px solid #e2e8f0",
+                      background: isChecked ? "#eff6ff" : "#f8fafc",
+                      color: isChecked ? "#1e40af" : "#334155",
+                      fontSize: "11.5px",
+                      fontWeight: isChecked ? 700 : 500,
+                      cursor: "pointer",
+                      userSelect: "none",
+                      transition: "all 0.15s ease",
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={isChecked}
+                      onChange={(e) => {
+                        const curr = rules.selectedIndustries || [];
+                        if (e.target.checked) {
+                          setRules((p) => ({ ...p, selectedIndustries: Array.from(new Set([...curr, ind])) }));
+                        } else {
+                          setRules((p) => ({ ...p, selectedIndustries: curr.filter((i) => i !== ind) }));
+                        }
+                      }}
+                    />
+                    <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {ind}
+                    </span>
+                  </label>
+                );
+              })}
+            </div>
+          </div>
+        ) : (
+          <div style={{ background: "#f8fafc", padding: "10px 14px", borderRadius: "6px", border: "1px dashed #cbd5e1", fontSize: "11.5px", color: "#64748b" }}>
+            Industry vertical filter is currently <b>unchecked</b> — leads from all industries will be qualified.
+          </div>
+        )}
+      </div>
+
+      {/* FILTER 2: Specific Date Duration / Timestamp Filter */}
+      <div style={{ marginTop: "16px", background: "var(--canvas)", padding: "16px", borderRadius: "8px", border: "1px solid var(--line)" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px", flexWrap: "wrap", gap: "8px" }}>
+          <label style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "13px", fontWeight: 700, color: "var(--ink)", cursor: "pointer" }}>
+            <input
+              type="checkbox"
+              checked={Boolean(rules.filterByDate)}
+              onChange={(e) => setRules((p) => ({ ...p, filterByDate: e.target.checked }))}
+            />
+            <span>Filter by Date Duration (Tracking Timestamp)</span>
+          </label>
+
+          {rules.filterByDate && (
+            <button
+              type="button"
+              onClick={() => setRules((p) => ({ ...p, dateFrom: "", dateTo: "" }))}
+              style={{
+                background: "#fff",
+                border: "1px solid #cbd5e1",
+                borderRadius: "5px",
+                padding: "4px 9px",
+                fontSize: "11px",
+                fontWeight: 600,
+                color: "#64748b",
+                cursor: "pointer",
+              }}
+            >
+              Clear Dates
+            </button>
+          )}
+        </div>
+
+        <span style={{ display: "block", fontSize: "11.5px", color: "var(--muted)", marginBottom: "12px" }}>
+          Matches column <b>Timestamp</b> in the tracking sheet (e.g. <code>22/9/2026, 04:10</code>). Only opens and clicks recorded within this range will be counted.
+        </span>
+
+        {rules.filterByDate ? (
+          <div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "12px", marginBottom: "12px" }}>
+              <div>
+                <label style={{ display: "block", fontSize: "11.5px", fontWeight: 700, color: "#475569", marginBottom: "4px" }}>
+                  Start Date (From)
+                </label>
+                <input
+                  type="date"
+                  value={rules.dateFrom || ""}
+                  onChange={(e) => setRules((p) => ({ ...p, dateFrom: e.target.value }))}
+                  style={{
+                    width: "100%",
+                    padding: "8px 10px",
+                    border: "1px solid #cbd5e1",
+                    borderRadius: "6px",
+                    fontSize: "12.5px",
+                    fontWeight: 600,
+                    color: "var(--ink)",
+                    background: "#fff",
+                    boxSizing: "border-box",
+                  }}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: "block", fontSize: "11.5px", fontWeight: 700, color: "#475569", marginBottom: "4px" }}>
+                  End Date (To)
+                </label>
+                <input
+                  type="date"
+                  value={rules.dateTo || ""}
+                  onChange={(e) => setRules((p) => ({ ...p, dateTo: e.target.value }))}
+                  style={{
+                    width: "100%",
+                    padding: "8px 10px",
+                    border: "1px solid #cbd5e1",
+                    borderRadius: "6px",
+                    fontSize: "12.5px",
+                    fontWeight: 600,
+                    color: "var(--ink)",
+                    background: "#fff",
+                    boxSizing: "border-box",
+                  }}
+                />
+              </div>
+            </div>
+
+            {/* Quick Duration Buttons */}
+            <div style={{ display: "flex", gap: "6px", flexWrap: "wrap", alignItems: "center" }}>
+              <span style={{ fontSize: "11px", color: "#64748b", fontWeight: 600 }}>Quick Presets:</span>
+              {[
+                { label: "Today", days: 0 },
+                { label: "Yesterday", days: 1, isYesterday: true },
+                { label: "Last 7 Days", days: 7 },
+                { label: "Last 30 Days", days: 30 },
+              ].map((p) => (
+                <button
+                  key={p.label}
+                  type="button"
+                  onClick={() => {
+                    const now = new Date();
+                    const toStr = now.toISOString().split("T")[0];
+                    if (p.isYesterday) {
+                      const y = new Date(now.getTime() - 86400000);
+                      const yStr = y.toISOString().split("T")[0];
+                      setRules((prev) => ({ ...prev, dateFrom: yStr, dateTo: yStr }));
+                    } else if (p.days === 0) {
+                      setRules((prev) => ({ ...prev, dateFrom: toStr, dateTo: toStr }));
+                    } else {
+                      const past = new Date(now.getTime() - p.days * 86400000);
+                      const fromStr = past.toISOString().split("T")[0];
+                      setRules((prev) => ({ ...prev, dateFrom: fromStr, dateTo: toStr }));
+                    }
+                  }}
+                  style={{
+                    background: "#f1f5f9",
+                    border: "1px solid #cbd5e1",
+                    borderRadius: "4px",
+                    padding: "3px 8px",
+                    fontSize: "11px",
+                    fontWeight: 600,
+                    color: "#334155",
+                    cursor: "pointer",
+                  }}
+                >
+                  {p.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <div style={{ background: "#f8fafc", padding: "10px 14px", borderRadius: "6px", border: "1px dashed #cbd5e1", fontSize: "11.5px", color: "#64748b" }}>
+            Date duration filtering is currently <b>unchecked</b> — all tracking events regardless of timestamp will be included.
+          </div>
+        )}
       </div>
     </div>
   );
