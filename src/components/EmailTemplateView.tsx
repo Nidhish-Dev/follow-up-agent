@@ -47,9 +47,20 @@ const AVAILABLE_VARIABLES = [
   { tag: "{{hook_closer}}", label: "Hook Closer (Bold)", desc: "e.g. That's the hard part..." },
   { tag: "{{vertical_focus}}", label: "Vertical Focus", desc: "Specific ops infrastructure focus" },
   { tag: "{{call_url}}", label: "Booking Link", desc: "Calendly tracking URL" },
+  { tag: "{{call_button_text}}", label: "Call Button Label", desc: "e.g. Book a Free Call" },
   { tag: "{{whatsapp_url}}", label: "WhatsApp Link", desc: "WhatsApp direct chat URL" },
+  { tag: "{{whatsapp_text}}", label: "WhatsApp Button Label", desc: "e.g. Text me on WhatsApp" },
   { tag: "{{sender_name}}", label: "Sender Name", desc: "Kashika Gupta" },
+  { tag: "{{sender_email}}", label: "Sender Email", desc: "team@grapelabs.in" },
 ];
+
+function normalizePlaceholdersInHtml(html: string): string {
+  if (!html) return "";
+  return html
+    .replace(/>\s*Book a Free Call\s*<\/a>/gi, ">{{call_button_text}}</a>")
+    .replace(/>\s*Text me on WhatsApp\s*<\/a>/gi, ">{{whatsapp_text}}</a>")
+    .replace(/>\s*Kashika Gupta\s*<\/div>/gi, ">{{sender_name}}</div>");
+}
 
 export function EmailTemplateView({
   fbUser,
@@ -123,14 +134,24 @@ export function EmailTemplateView({
               ...(DEFAULT_EMAIL_TEMPLATE.industryTemplates || {}),
               ...(data.template.industryTemplates || {}),
             };
+            const normalizedIndustryTemplates: Record<string, { subject: string; bodyHtml: string }> = {};
+            for (const [k, v] of Object.entries(mergedIndustryTemplates)) {
+              const item = v as { subject?: string; bodyHtml?: string };
+              normalizedIndustryTemplates[k] = {
+                subject: item?.subject || "",
+                bodyHtml: normalizePlaceholdersInHtml(item?.bodyHtml || ""),
+              };
+            }
             const loadedCustom = Array.isArray(data.template.customIndustries)
               ? data.template.customIndustries
               : [];
             setTemplate({
               ...DEFAULT_EMAIL_TEMPLATE,
               ...data.template,
+              bodyHtml: normalizePlaceholdersInHtml(data.template.bodyHtml || DEFAULT_EMAIL_TEMPLATE.bodyHtml),
+              signatureHtml: normalizePlaceholdersInHtml(data.template.signatureHtml || DEFAULT_EMAIL_TEMPLATE.signatureHtml),
               customIndustries: loadedCustom,
-              industryTemplates: mergedIndustryTemplates,
+              industryTemplates: normalizedIndustryTemplates,
             });
             if (data.template.selectedIndustry) {
               setSelectedIndustry(data.template.selectedIndustry);
@@ -335,21 +356,62 @@ export function EmailTemplateView({
 
   // Interpolate variables for preview
   const interpolate = (html: string, lead: SampleLead) => {
-    const rawWaUrl = template.whatsappUrl || "https://wa.me/918388892300?text=Hi%20Kashika,%20saw%20your%20email";
+    if (!html) return "";
+    const callUrl = (template.callUrl || "https://calendly.com/team-grapelabs/30min").trim();
+    const callBtnText = (template.callButtonText || "Book a Free Call").trim();
+    const rawWaUrl = (template.whatsappUrl || "https://wa.me/918388892300?text=Hi%20Kashika,%20saw%20your%20email").trim();
     const resolvedWaUrl = rawWaUrl.replace(/\{\{\s*brand\s*\}\}/gi, encodeURIComponent(lead.brand || "your brand"));
+    const waBtnText = (template.whatsappText || "Text me on WhatsApp").trim();
+    const senderName = (template.senderName || "Kashika Gupta").trim();
+    const senderEmail = (template.senderEmail || "team@grapelabs.in").trim();
 
-    return html
+    let res = html
       .replace(/\{\{\s*first_name\s*\}\}/gi, lead.name)
       .replace(/\{\{\s*recipientName\s*\}\}/gi, lead.name)
       .replace(/\{\{\s*brand\s*\}\}/gi, lead.brand)
       .replace(/\{\{\s*achievement_hook\s*\}\}/gi, lead.hook)
       .replace(/\{\{\s*hook_closer\s*\}\}/gi, lead.closer)
       .replace(/\{\{\s*vertical_focus\s*\}\}/gi, lead.verticalFocus)
-      .replace(/\{\{\s*call_url\s*\}\}/gi, template.callUrl || "https://calendly.com/team-grapelabs/30min")
+      .replace(/\{\{\s*call_url\s*\}\}/gi, callUrl)
       .replace(/\{\{\s*whatsapp_url\s*\}\}/gi, resolvedWaUrl)
-      .replace(/\{\{\s*call_button_text\s*\}\}/gi, template.callButtonText || "Book a Free Call")
-      .replace(/\{\{\s*whatsapp_text\s*\}\}/gi, template.whatsappText || "Text me on WhatsApp")
-      .replace(/\{\{\s*sender_name\s*\}\}/gi, template.senderName || "Kashika Gupta");
+      .replace(/\{\{\s*call_button_text\s*\}\}/gi, callBtnText)
+      .replace(/\{\{\s*whatsapp_text\s*\}\}/gi, waBtnText)
+      .replace(/\{\{\s*sender_name\s*\}\}/gi, senderName)
+      .replace(/\{\{\s*sender_email\s*\}\}/gi, senderEmail);
+
+    // Resilient fallback for CTA buttons: ensures live changes to button text & URLs immediately update in preview
+    res = res.replace(
+      /(<a\b[^>]*?href=["'])([^"']*?)(["'][^>]*?>)([\s\S]*?)(<\/a>)/gi,
+      (match, prefix, href, middle, inner, suffix) => {
+        const isCallBtn =
+          href.includes("calendly") ||
+          href.includes("call_url") ||
+          match.includes("#581c87") ||
+          /book\s+a\s+free\s+call/i.test(inner);
+
+        const isWaBtn =
+          href.includes("wa.me") ||
+          href.includes("whatsapp") ||
+          match.includes("#25D366") ||
+          /text\s+me\s+on\s+whatsapp/i.test(inner);
+
+        if (isCallBtn) {
+          return `${prefix}${callUrl}${middle}${callBtnText}${suffix}`;
+        }
+        if (isWaBtn) {
+          return `${prefix}${resolvedWaUrl}${middle}${waBtnText}${suffix}`;
+        }
+        return match;
+      }
+    );
+
+    // Resilient fallback for sender name in signature
+    res = res.replace(
+      /(margin-bottom:\s*14px;\s*font-weight:\s*600;\s*color:\s*#111827;["'][^>]*>)([^<]*?)(<\/div>)/gi,
+      `$1${senderName}$3`
+    );
+
+    return res;
   };
 
   const previewSubject = interpolate(currentIndustrySubject, activeLead);
@@ -718,9 +780,14 @@ export function EmailTemplateView({
 
           {/* 2. Sender & Global Call Booking Settings */}
           <div style={{ background: "#fff", border: "1px solid var(--line)", borderRadius: "8px", padding: "18px" }}>
-            <span className="eyebrow" style={{ display: "block", marginBottom: "8px" }}>
-              GLOBAL SENDER & BOOKING DESTINATIONS
-            </span>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "10px" }}>
+              <span className="eyebrow" style={{ margin: 0 }}>
+                GLOBAL SENDER & BOOKING DESTINATIONS
+              </span>
+              <span style={{ fontSize: "10.5px", fontWeight: 700, color: "#16a34a", background: "#dcfce7", padding: "2px 8px", borderRadius: "999px", display: "inline-flex", alignItems: "center", gap: "4px" }}>
+                ⚡ Live Preview Synced
+              </span>
+            </div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", marginBottom: "12px" }}>
               <div>
                 <label style={{ display: "block", fontSize: "11px", fontWeight: 600, color: "var(--muted)", marginBottom: "4px" }}>
@@ -728,8 +795,9 @@ export function EmailTemplateView({
                 </label>
                 <input
                   type="text"
-                  value={template.senderName}
+                  value={template.senderName ?? ""}
                   onChange={(e) => setTemplate((p) => ({ ...p, senderName: e.target.value }))}
+                  placeholder="Kashika Gupta"
                   style={{
                     width: "100%",
                     padding: "7px 10px",
@@ -748,8 +816,9 @@ export function EmailTemplateView({
                 </label>
                 <input
                   type="email"
-                  value={template.senderEmail}
+                  value={template.senderEmail ?? ""}
                   onChange={(e) => setTemplate((p) => ({ ...p, senderEmail: e.target.value }))}
+                  placeholder="team@grapelabs.in"
                   style={{
                     width: "100%",
                     padding: "7px 10px",
@@ -770,9 +839,9 @@ export function EmailTemplateView({
                 </label>
                 <input
                   type="url"
-                  value={template.callUrl}
+                  value={template.callUrl ?? ""}
                   onChange={(e) => setTemplate((p) => ({ ...p, callUrl: e.target.value }))}
-                  placeholder="https://calendly.com/your-team/30min"
+                  placeholder="https://calendly.com/team-grapelabs/30min"
                   style={{
                     width: "100%",
                     padding: "7px 10px",
@@ -791,7 +860,7 @@ export function EmailTemplateView({
                 </label>
                 <input
                   type="text"
-                  value={template.callButtonText || "Book a Free Call"}
+                  value={template.callButtonText ?? ""}
                   onChange={(e) => setTemplate((p) => ({ ...p, callButtonText: e.target.value }))}
                   placeholder="Book a Free Call"
                   style={{
@@ -814,7 +883,7 @@ export function EmailTemplateView({
                 </label>
                 <input
                   type="text"
-                  value={template.whatsappUrl || ""}
+                  value={template.whatsappUrl ?? ""}
                   onChange={(e) => setTemplate((p) => ({ ...p, whatsappUrl: e.target.value }))}
                   placeholder="https://wa.me/918388892300?text=..."
                   style={{
@@ -835,7 +904,7 @@ export function EmailTemplateView({
                 </label>
                 <input
                   type="text"
-                  value={template.whatsappText || "Text me on WhatsApp"}
+                  value={template.whatsappText ?? ""}
                   onChange={(e) => setTemplate((p) => ({ ...p, whatsappText: e.target.value }))}
                   placeholder="Text me on WhatsApp"
                   style={{
@@ -1063,13 +1132,13 @@ export function EmailTemplateView({
                           placeItems: "center",
                         }}
                       >
-                        {template.senderName[0] || "K"}
+                        {(template.senderName || "K")[0]?.toUpperCase() || "K"}
                       </div>
                       <div>
                         <div style={{ fontSize: "12.5px", fontWeight: 600, color: "#1e293b" }}>
-                          {template.senderName}{" "}
+                          {template.senderName || "Kashika Gupta"}{" "}
                           <span style={{ fontSize: "11px", fontWeight: 400, color: "#64748b" }}>
-                            &lt;{template.senderEmail}&gt;
+                            &lt;{template.senderEmail || "team@grapelabs.in"}&gt;
                           </span>
                         </div>
                         <div style={{ fontSize: "11px", color: "#94a3b8" }}>

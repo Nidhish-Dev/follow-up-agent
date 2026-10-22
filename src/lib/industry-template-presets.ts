@@ -32,10 +32,10 @@ const CTA_BUTTON_SNIPPET = `<!-- CTA Buttons -->
 <table border="0" cellpadding="0" cellspacing="0" style="margin: 18px 0 16px 0;">
   <tr>
     <td style="padding-right: 12px; padding-bottom: 8px;">
-      <a href="{{call_url}}" style="display: inline-block; background-color: #581c87; color: #ffffff; text-decoration: none; padding: 12px 22px; border-radius: 6px; font-weight: 700; font-size: 14px; line-height: 1.2; text-align: center;">Book a Free Call</a>
+      <a href="{{call_url}}" style="display: inline-block; background-color: #581c87; color: #ffffff; text-decoration: none; padding: 12px 22px; border-radius: 6px; font-weight: 700; font-size: 14px; line-height: 1.2; text-align: center;">{{call_button_text}}</a>
     </td>
     <td style="padding-bottom: 8px;">
-      <a href="{{whatsapp_url}}" style="display: inline-block; background-color: #25D366; color: #ffffff; text-decoration: none; padding: 12px 22px; border-radius: 6px; font-weight: 700; font-size: 14px; line-height: 1.2; text-align: center;">Text me on WhatsApp</a>
+      <a href="{{whatsapp_url}}" style="display: inline-block; background-color: #25D366; color: #ffffff; text-decoration: none; padding: 12px 22px; border-radius: 6px; font-weight: 700; font-size: 14px; line-height: 1.2; text-align: center;">{{whatsapp_text}}</a>
     </td>
   </tr>
 </table>`;

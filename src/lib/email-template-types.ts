@@ -41,10 +41,10 @@ export const DEFAULT_EMAIL_BODY_HTML = `<div style="font-family: -apple-system, 
   <table border="0" cellpadding="0" cellspacing="0" style="margin: 18px 0 16px 0;">
     <tr>
       <td style="padding-right: 12px; padding-bottom: 8px;">
-        <a href="{{call_url}}" style="display: inline-block; background-color: #581c87; color: #ffffff; text-decoration: none; padding: 12px 22px; border-radius: 6px; font-weight: 700; font-size: 14px; line-height: 1.2; text-align: center;">Book a Free Call</a>
+        <a href="{{call_url}}" style="display: inline-block; background-color: #581c87; color: #ffffff; text-decoration: none; padding: 12px 22px; border-radius: 6px; font-weight: 700; font-size: 14px; line-height: 1.2; text-align: center;">{{call_button_text}}</a>
       </td>
       <td style="padding-bottom: 8px;">
-        <a href="{{whatsapp_url}}" style="display: inline-block; background-color: #25D366; color: #ffffff; text-decoration: none; padding: 12px 22px; border-radius: 6px; font-weight: 700; font-size: 14px; line-height: 1.2; text-align: center;">Text me on WhatsApp</a>
+        <a href="{{whatsapp_url}}" style="display: inline-block; background-color: #25D366; color: #ffffff; text-decoration: none; padding: 12px 22px; border-radius: 6px; font-weight: 700; font-size: 14px; line-height: 1.2; text-align: center;">{{whatsapp_text}}</a>
       </td>
     </tr>
   </table>
@@ -52,7 +52,7 @@ export const DEFAULT_EMAIL_BODY_HTML = `<div style="font-family: -apple-system, 
 
 export const DEFAULT_EMAIL_SIGNATURE_HTML = `<div style="margin-top: 22px; line-height: 1.45; font-size: 13px; color: #374151;">
   <div style="margin-bottom: 4px;">Best,</div>
-  <div style="margin-bottom: 14px; font-weight: 600; color: #111827;">Kashika Gupta</div>
+  <div style="margin-bottom: 14px; font-weight: 600; color: #111827;">{{sender_name}}</div>
   <div style="border-left: 2px solid #7c3aed; padding-left: 10px; margin-bottom: 18px;">
     <div style="color: #6d28d9; font-weight: 600; font-size: 13px;">Co-Founder, GrapeLabs AI</div>
     <div style="color: #6b7280; font-size: 12px; margin-top: 2px;">Green Park, New Delhi · 110016</div>

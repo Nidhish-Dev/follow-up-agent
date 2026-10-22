@@ -188,7 +188,7 @@ export function LeadFollowUpView({
       }
     }
 
-    return html
+    let res = html
       .replace(/\{\{\s*first_name\s*\}\}/gi, leadFirstName)
       .replace(/\{\{\s*recipientName\s*\}\}/gi, lead.name || leadFirstName)
       .replace(/\{\{\s*brand\s*\}\}/gi, lead.brand || "your brand")
@@ -210,7 +210,42 @@ export function LeadFollowUpView({
       .replace(/\{\{\s*whatsapp_url\s*\}\}/gi, waUrl)
       .replace(/\{\{\s*call_button_text\s*\}\}/gi, callBtnText)
       .replace(/\{\{\s*whatsapp_text\s*\}\}/gi, waBtnText)
-      .replace(/\{\{\s*sender_name\s*\}\}/gi, template.senderName || "Kashika Gupta");
+      .replace(/\{\{\s*sender_name\s*\}\}/gi, template.senderName || "Kashika Gupta")
+      .replace(/\{\{\s*sender_email\s*\}\}/gi, template.senderEmail || "team@grapelabs.in");
+
+    // Resilient fallback for CTA buttons: ensures buttons & links reflect configured values
+    res = res.replace(
+      /(<a\b[^>]*?href=["'])([^"']*?)(["'][^>]*?>)([\s\S]*?)(<\/a>)/gi,
+      (match, prefix, href, middle, inner, suffix) => {
+        const isCallBtn =
+          href.includes("calendly") ||
+          href.includes("call_url") ||
+          match.includes("#581c87") ||
+          /book\s+a\s+free\s+call/i.test(inner);
+
+        const isWaBtn =
+          href.includes("wa.me") ||
+          href.includes("whatsapp") ||
+          match.includes("#25D366") ||
+          /text\s+me\s+on\s+whatsapp/i.test(inner);
+
+        if (isCallBtn) {
+          return `${prefix}${callUrl}${middle}${callBtnText}${suffix}`;
+        }
+        if (isWaBtn) {
+          return `${prefix}${waUrl}${middle}${waBtnText}${suffix}`;
+        }
+        return match;
+      }
+    );
+
+    // Resilient fallback for sender name in signature
+    res = res.replace(
+      /(margin-bottom:\s*14px;\s*font-weight:\s*600;\s*color:\s*#111827;["'][^>]*>)([^<]*?)(<\/div>)/gi,
+      `$1${template.senderName || "Kashika Gupta"}$3`
+    );
+
+    return res;
   };
 
   // Reset custom composer when selected lead changes with industry template resolution
@@ -244,7 +279,7 @@ export function LeadFollowUpView({
         leadName: selectedLead.name,
         brand: selectedLead.brand,
         subject: customSubject,
-        bodyHtml: `${customBodyHtml}\n\n${template.signatureHtml}`,
+        bodyHtml: `${customBodyHtml}\n\n${interpolate(template.signatureHtml, selectedLead)}`,
         leadData: selectedLead.raw,
         sheetName: sheetInfo.sheetName,
         rowIndex: selectedLead.rowIndex,
